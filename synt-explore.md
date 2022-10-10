@@ -28,9 +28,39 @@ print("Is spectral", mi.is_spectral)
 ```
 
 ```python
-# Image has been removed
-ref_img = np.zeros((10,10))
+import h5py
 
+def load_ref_rods_image(ref_fuel_matrix_path, band_num = None):
+    
+    
+    with h5py.File(ref_fuel_matrix_path, "r") as matrix_object:
+        bands_total = matrix_object["bands"][()]
+        band_num_resolved = band_num if band_num else bands_total//2
+        ref_img_full = matrix_object[f'band-{band_num_resolved:03}'][:].astype(float)
+    
+
+    t,b,l,r, = 650,800, 100,700
+    
+    plt.imshow(ref_img_full[:1200])
+    plt.axvline(100,)
+    plt.axvline(700)
+    plt.show()
+
+    return ref_img_full[t:b,l:r] /255
+    
+
+ref_fuel_matrix = "/disk/knotek/video_matrices/1GO22-WTA6-F1-matrix.hdf5"
+ref_img = load_ref_rods_image(ref_fuel_matrix)
+
+print("Taking 20th band should take stuff 'above' camera. However, this assumption doesn't hold for videos with bottom-up camera movemet. \nAlways check the images if you see the header and notice the reflections on the grid")
+ref_img_band_10 = load_ref_rods_image(ref_fuel_matrix,20)
+
+print('shape', ref_img.shape)
+plt.imshow(ref_img,cmap='gray',vmin=0,vmax=1)
+plt.show()
+
+plt.imshow(ref_img_band_10,cmap='gray',vmin=0,vmax=1)
+plt.show()
 ```
 
 ```python

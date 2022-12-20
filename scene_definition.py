@@ -1,6 +1,7 @@
 import numpy as np
 import mitsuba as mi
 import rods_hexagon
+import bent_rod
 
 _pink_bsdf = {
     "type" : "diffuse",
@@ -104,7 +105,38 @@ def get_gray_diffuse(intensity):
         }
     }
 
-#def get_rods_material(scene_params,optimized_params, spectral_params  = None):
+def get_grid_bsdf(gray_intensity,bsdf_blend_factor,material_alpha_u,material_alpha_v,  spectral_params = None):
+
+    spectral_params = spectral_params if spectral_params is not None else get_inconel_data()
+    
+    eta_spectrum = list(zip(spectral_params[:,0],spectral_params[:,1]))
+    k_spectrum = list(zip(spectral_params[:,0],spectral_params[:,2]))
+    
+    bsdf = get_gray_diffuse(gray_intensity)
+    return {
+        "type": "blendbsdf",
+        "id":"rods_material",
+        "weight":{
+            "type":"spectrum",
+            "value":bsdf_blend_factor,
+        },
+        "bsdf":bsdf,
+        "metal": {
+        "type" : "roughconductor",
+            "eta": {
+                "type":"spectrum",
+                "value":eta_spectrum,
+            },
+            "k":{
+                "type":"spectrum",
+                "value":k_spectrum,
+            },
+            #"distribution":"ggx",            
+            "alpha_u":material_alpha_u,
+            "alpha_v":material_alpha_v,
+        }
+    }
+
 def get_rods_bsdf(gray_intensity,bsdf_blend_factor,material_alpha_u,material_alpha_v,  spectral_params = None):
 
     spectral_params = spectral_params if spectral_params is not None else get_zirconium_data()
@@ -179,27 +211,48 @@ def get_rod(rod_center, radius, rod_height = 1):
     }
 
 
-def generate_rods_group(rods_group_id, config, bsdf=None):
+def generate_rods_group(config, has_rod_divergence=False, bsdf=None):
     rod_count = 11
-    rod_height = 4500
     
-    bsdf_resolved  = bsdf if bsdf is not None else _pink_bsdf
-    
-    cylinder_radius = config['measurements']['rod_width_mm']/2
+    spacing= config['grid_detection']["mods"][-1]['spacing_mm']
+    grid_heights_mm= config['grid_detection']["mods"][-1]['grid_heights_mm']
 
+    rod_height = np.sum(spacing)                    
+    bsdf_resolved  = bsdf if bsdf is not None else _pink_bsdf    
     
-    rods_group = {
-        "type":"shapegroup",
-        "id":rods_group_id,
-    }
+    rod_width_mm = config['measurements']['rod_width_mm']
+    gap_between_rods_width_mm = config['measurements']['gap_between_rods_width_mm']
+    
+    rod_centers = rods_hexagon.generate_rod_centers(rod_count,rod_width_mm, gap_between_rods_width_mm)
+    
+    if has_rod_divergence:
+        max_divergence_mm = 5
+        return bent_rod.get_twisted_nfa_mesh(config,rod_centers,spacing,grid_heights_mm,max_divergence_mm, bsdf_resolved)
+    else:
+        cylinder_radius = config['measurements']['rod_width_mm']/2
+        rods = [ get_rod((*rc,0),cylinder_radius,rod_height) for rc in rod_centers]
 
-    rod_centers = rods_hexagon.generate_rod_centers(rod_count,config)
-    rods = [ get_rod((*rc,0),cylinder_radius,rod_height) for rc in rod_centers]
+        rod_objs = []
+        for i, rod in enumerate(rods[:]):
+            rod['my_bsdf'] = bsdf_resolved
+            rod_objs.append(rod)
+
+        return rod_objs
     
-    for i, rod in enumerate(rods[:]):
-        rod['my_bsdf'] = bsdf_resolved
+# def generate_rods_group(config, bsdf=None):
+#     rod_count = 11
+#     rod_height = 4500
+    
+#     bsdf_resolved  = bsdf if bsdf is not None else _pink_bsdf
+    
+#     cylinder_radius = config['measurements']['rod_width_mm']/2
+#     rod_centers = rods_hexagon.generate_rod_centers(rod_count,config)
+#     rods = [ get_rod((*rc,0),cylinder_radius,rod_height) for rc in rod_centers]
+    
+#     rods_obj = []
+#     for i, rod in enumerate(rods[:]):
+#         rod['my_bsdf'] = bsdf_resolved
+#         rods_obj.append(rod)
         
-        rods_group[f"rod_center_{i:05}"] = rod
-        
-    return rods_group
+#     return rods_obj
 

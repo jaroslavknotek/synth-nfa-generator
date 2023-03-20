@@ -223,11 +223,13 @@ def generate_rods_group(config, has_rod_divergence=False, bsdf=None):
     rod_width_mm = config['measurements']['rod_width_mm']
     gap_between_rods_width_mm = config['measurements']['gap_between_rods_width_mm']
     
+
     rod_centers = rods_hexagon.generate_rod_centers(rod_count,rod_width_mm, gap_between_rods_width_mm)
     
     if has_rod_divergence:
         max_divergence_mm = 5
-        return bent_rod.get_twisted_nfa_mesh(config,rod_centers,spacing,grid_heights_mm,max_divergence_mm, bsdf_resolved)
+        max_twist_bow_mm = 50
+        return bent_rod.get_twisted_nfa_mesh(config,rod_centers,spacing,grid_heights_mm,max_divergence_mm, bsdf_resolved, max_twist_bow_mm=max_twist_bow_mm,return_curve=True)
     else:
         cylinder_radius = config['measurements']['rod_width_mm']/2
         rods = [ get_rod((*rc,0),cylinder_radius,rod_height) for rc in rod_centers]

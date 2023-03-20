@@ -4,11 +4,24 @@ import bezier
 import mitsuba as mi
 import os
 
-def get_twisted_nfa_mesh(config, rod_centers,spacing_mm,grid_heights_mm,max_divergence_mm, bsdfmaterial,max_twist_bow_mm=0, rod_bow_segments = 20, rod_circle_segments = 32):
+def get_twisted_nfa_mesh(
+    config, 
+    rod_centers,
+    spacing_mm,
+    grid_heights_mm,
+    max_divergence_mm, 
+    bsdfmaterial,
+    max_twist_bow_mm=0, 
+    rod_bow_segments = 20, 
+    rod_circle_segments = 32,
+    seed = 678,
+    return_curve = False):
+    
     cylinder_radius = config['measurements']['rod_width_mm']/2
     spacing_mm = np.concatenate([[0], spacing_mm])
-    curves = get_nfa_curves(spacing_mm, rod_centers,grid_heights_mm,max_divergence_mm,max_twist_bow_mm)
-    rod_vertices_faces =np.array([get_curved_rod(curve,rod_bow_segments,rod_circle_segments,radius=cylinder_radius) for curve in curves],dtype=object)
+    bent_random = np.random.RandomState(seed)
+    nfa_curve, curves = get_nfa_curves(spacing_mm, rod_centers,grid_heights_mm,max_divergence_mm,max_twist_bow_mm,bent_random)
+    rod_vertices_faces =np.array([get_curved_rod(nfa_curve,curve,rod_bow_segments,rod_circle_segments,radius=cylinder_radius) for curve in curves],dtype=object)
     v,f = bake_rod_geometry(rod_vertices_faces[:,0],rod_vertices_faces[:,1])    
     mesh = get_rod_mesh(v,f)
     
@@ -17,11 +30,16 @@ def get_twisted_nfa_mesh(config, rod_centers,spacing_mm,grid_heights_mm,max_dive
     mesh.write_ply(mesh_path)
 
     # the list brackets ('[',']') are here because of compatibility with existing solution
-    return [{
+    
+    res= [{
         "type": "ply",
         "filename": mesh_path,
         "material":bsdfmaterial
     }]
+    if return_curve:
+        return nfa_curve,res
+    else: 
+        return res
 
     
     
@@ -146,7 +164,7 @@ class PiecewiseBezierCurve():
         
         return np.stack(found_xyz).T
 
-def get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers, grid_heights_mm, spacing_mm,rod_divergence_mm):
+def get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers, grid_heights_mm, spacing_mm,rod_divergence_mm,bent_random):
     rods = []    
     nfa_height_mm = np.sum(spacing_mm)
     
@@ -159,7 +177,7 @@ def get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers, grid_height
         for z_start,z_end, grid_end_margin, grid_start_margin in zip(z,z[1:],grid_heights_mm_per_node//2,grid_heights_mm_per_node[1:]//2):
             z_start_grid = z_start + grid_end_margin
             z_end_grid = z_end - grid_start_margin
-            x,y = np.random.rand(2,1)*rod_divergence_mm*2 - rod_divergence_mm
+            x,y = bent_random.rand(2,1)*rod_divergence_mm*2 - rod_divergence_mm
             
             assert z_start_grid < z_end_grid            
             bezier_start = [rc_x,rc_y,z_start_grid]
@@ -197,24 +215,29 @@ def get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers, grid_height
     return rods
 
 
-def get_nfa_curves(spacing_mm, rod_centers,grid_heights_mm,rod_divergence_mm,max_twist_bow_mm):
+def get_nfa_curves(spacing_mm, rod_centers,grid_heights_mm,rod_divergence_mm,max_twist_bow_mm,bent_random):
     
     nfa_height_mm = np.sum(spacing_mm)
     
     nfa_bow_curve = get_nfa_bow_curve(nfa_height_mm,max_twist_bow_mm=max_twist_bow_mm)
     
-    return get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers,grid_heights_mm, spacing_mm,rod_divergence_mm)
+    return nfa_bow_curve, get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers,grid_heights_mm, spacing_mm,rod_divergence_mm,bent_random)
 
-def get_curved_rod(curve, rod_segments, cylinder_faces, radius = 1):
+def get_curved_rod(nfa_curve,curve, rod_segments, cylinder_faces, radius = 1):
     actual_segments = rod_segments +1
     curve_eval_points = np.linspace(0,1,actual_segments)
     
-    x,y,z = curve.evaluate_multi(curve_eval_points)
+    c_x,c_y,c_z = curve.evaluate_multi(curve_eval_points)
+    n_x,n_y,n_z = nfa_curve.evaluate_multi(curve_eval_points)
+    
+    x = n_x + c_x
+    y = n_y + c_y
+    z = c_z
+    
     spacing = np.linspace(0,2*np.pi,cylinder_faces)
     x_circle = np.sin(spacing)* radius 
     y_circle = np.cos(spacing)* radius
     z = -z
-    
     
     cylinder_coor_shape = (actual_segments,len(x_circle))
     cylinder_x = np.broadcast_to(x_circle ,cylinder_coor_shape) + np.broadcast_to(x[:,np.newaxis], cylinder_coor_shape)

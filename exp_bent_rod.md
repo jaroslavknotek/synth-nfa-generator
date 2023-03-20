@@ -176,14 +176,36 @@ def plot_rod_deflections(ax,rod_deflections, grid_positions_mm, grid_heights_mm,
         
     grid_heights_mm_add = np.concatenate([[None],grid_heights_mm,[None]])
     for gp,gh in zip(grid_positions_mm, grid_heights_mm_add):
-        ax.axhline(gp,alpha=.2)
+        #ax.axhline(gp,alpha=.2)
         if gh is not None:
             ax.axhline(gp - gh//2,c='r',alpha=.2)
             ax.axhline(gp + gh//2,c='r',alpha=.2)
         
         
     ax.axvline(0,alpha =.2)
-    #ax.set_ylim((0,1000))
+    ax.set_ylim((0,1000))
+
+def plot_rods(ax,rod_deflections,grid_positions_mm, grid_heights_mm, rods_offset_mm,nfa_height_mm,title):
+    eval_at_z = np.linspace(0,1,1000)
+    curves = [ curve.evaluate_multi(eval_at_z) for curve in rod_deflections]
+    
+    ax.set_title(title)
+    for curve in curves:
+        x = curve[0]
+        
+        y = curve[-1] # eval_at_z*nfa_height_mm
+        ax.plot(x ,y)
+        
+    grid_heights_mm_add = np.concatenate([[None],grid_heights_mm,[None]])
+    for gp,gh in zip(grid_positions_mm, grid_heights_mm_add):
+        # ax.axhline(gp,alpha=.2)
+        if gh is not None:
+            ax.axhline(gp - gh//2,c='r',alpha=.2)
+            ax.axhline(gp + gh//2,c='r',alpha=.2)
+        
+        
+    ax.axvline(0,alpha =.2)
+    
 
 config = {
     'grid_detection':
@@ -217,16 +239,20 @@ fig,(ax0,ax1,ax2) = plt.subplots(1,3)
 # plot_rod_deflections(ax1,rod_deflections, grid_positions_mm, rods_offset_mm,nfa_height_mm)
 
 test_rod_centers = [(i*rods_offset_mm,0) for i in range(rod_count)]
-rod_deflections = get_rod_deflections(nfa_bow_curve, test_rod_centers, grid_heights, spacing_mm,rods_offset_mm)
-rod_deflections_exp = get_rod_deflections_exp(nfa_bow_curve, test_rod_centers, grid_heights, spacing_mm,rods_offset_mm)
-rod_deflections_piecewise_bezier = bent_rod.get_rod_deflections_piecewise_bezier(nfa_bow_curve, test_rod_centers, grid_heights, spacing_mm,rods_offset_mm)
+rod_deflections = get_rod_deflections(nfa_bow_curve, test_rod_centers, grid_heights_mm, spacing_mm,rods_offset_mm)
+rod_deflections_exp = get_rod_deflections_exp(nfa_bow_curve, test_rod_centers, grid_heights_mm, spacing_mm,rods_offset_mm)
+rod_deflections_piecewise_bezier = bent_rod.get_rod_deflections_piecewise_bezier(nfa_bow_curve, test_rod_centers, grid_heights_mm, spacing_mm,rods_offset_mm,bent_random=np.random)
 
 plot_rod_deflections(ax0,rod_deflections, grid_positions_mm, grid_heights_mm,rods_offset_mm,nfa_height_mm,"Just bezier")    
 plot_rod_deflections(ax1,rod_deflections_piecewise_bezier, grid_positions_mm, grid_heights_mm,rods_offset_mm,nfa_height_mm,"Piecewise bezier")    
 plot_rod_deflections(ax2,rod_deflections_exp, grid_positions_mm, grid_heights_mm,rods_offset_mm,nfa_height_mm, "Spline")
-```
+plt.show()
 
-```python
+fig,(ax0,ax1) = plt.subplots(1,2)
+plot_rods(ax0,rod_deflections_piecewise_bezier, grid_positions_mm, grid_heights_mm,rods_offset_mm,nfa_height_mm,"Rods")
+plot_rod_deflections(ax1,rod_deflections_piecewise_bezier, grid_positions_mm, grid_heights_mm,rods_offset_mm,nfa_height_mm,"Rod Deflections")    
+
+
 
 ```
 
@@ -349,7 +375,15 @@ def generate_rods_group(config, has_rod_divergence, bsdf=None):
     rod_centers = rods_hexagon.generate_rod_centers(rod_count_per_face,rod_width_mm, gap_between_rods_width_mm)
     if has_rod_divergence:
         max_divergence_mm = 10
-        return bent_rod.get_twisted_nfa_mesh(config,rod_centers,spacing,grid_heights_mm,max_divergence_mm,bsdf_resolved)
+        max_twist_bow_mm = 200
+        return bent_rod.get_twisted_nfa_mesh(
+            config,
+            rod_centers,
+            spacing,
+            grid_heights_mm,
+            max_divergence_mm,
+            bsdf_resolved,
+            max_twist_bow_mm=max_twist_bow_mm)
     else:
         cylinder_radius = config['measurements']['rod_width_mm']/2
         rods = [ get_rod((*rc,0),cylinder_radius,rod_height) for rc in rod_centers]
@@ -374,7 +408,7 @@ config['measurements'] = {
 
 mesh_objs = generate_rods_group(config,True, scene_definition._pink_bsdf)
 
-img = render_objects(mesh_objs,cam_origin =[50,2050,-500])
+img = render_objects(mesh_objs,cam_origin =[50,8050,-2000])
 plt.imshow(img)
 
 

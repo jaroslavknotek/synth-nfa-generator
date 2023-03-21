@@ -5,11 +5,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.5
+      jupytext_version: 1.14.4
   kernelspec:
-    display_name: synt-nfa
+    display_name: palivo_general
     language: python
-    name: .venv
+    name: palivo_general
 ---
 
 ```python
@@ -18,18 +18,12 @@ jupyter:
 ```
 
 ```python
-from tqdm.auto import tqdm
-import time
-
-[ time.sleep(.2) for i in tqdm(range(10))]
-```
-
-```python
 import numpy as np
 import mitsuba as mi
 import matplotlib.pyplot as plt
-
-mi.set_variant('cuda_ad_spectral')
+#mi.set_variant('scalar_rgb')
+mi.set_variant('scalar_spectral')
+#mi.set_variant('cuda_ad_rgb')
 print("Is spectral", mi.is_spectral)
 
 from mitsuba import set_log_level,LogLevel
@@ -294,6 +288,49 @@ plt.imshow(bitmap)
 ```
 
 ```python
+
+# # Slim crop
+# fov,height,width,crop_shift = 5.85,*ref_img.shape[:2],0
+# # Video frame scrop
+# #fov,height,width,crop_shift = 22,video_config['height'],video_config['width'],59
+# camera_z= -480
+# render_intensity_factor = 2
+
+# scene_dict = get_nfa_scene_dict(config,fov,height,width,camera_z)
+# for key in [key for key in scene_dict if key.startswith('rod_')]:
+    
+#     scene_dict[key]['my_bsdf'] = {
+#         "type" : "diffuse",
+#         "reflectance" : {
+#             "type" : "rgb",
+#             "value" : [.3, .3, .3],
+#         }
+#     }
+
+# bitmap = render_scene(scene_dict)
+
+# arr = bitmap *render_intensity_factor
+# ref_img_rgb = np.dstack([ref_img,ref_img,ref_img])
+# fig,(ax1,ax2,ax3,ax2_plot,ax3_plot) = plt.subplots(5,1,figsize=(16,20))
+
+# arr_crop = arr[:,crop_shift:crop_shift+ref_img_rgb.shape[1]]
+# concat = np.concatenate([ arr_crop, ref_img_rgb],axis=0)
+
+# ax1.imshow(concat,vmin=0,vmax=1)
+# ax2.imshow(arr,vmin=0,vmax=1)
+
+# ax3.imshow(ref_img_rgb,vmin=0,vmax=1)
+
+# ax2_plot.plot(np.mean( arr, axis=0)[:,0],c='k')
+# ax3_plot.plot(np.mean( ref_img_rgb, axis=0),c='k')
+
+# ax2.axis('off')
+# ax3.axis('off')
+# ax2_plot.axis('off')
+# ax3_plot.axis('off')
+```
+
+```python
 import imageio
 import cv2
 import time 
@@ -302,20 +339,13 @@ from tqdm.auto import tqdm
 
 from datetime import datetime
 
-def get_frames(
-    frames_count,
-    frame_width,
-    frame_height,
-    is_top_down = True,
-    has_rod_divergence = False,
-    seed = 456):
+def get_frames(frames_count,frame_width,frame_height,has_rod_divergence = False,seed = 456):
     # Video frame scrop
     frame_random_state = np.random.RandomState(seed)
     fov = 28
-    
-    # TODO calc the param automatically
+    is_top_down = False
     render_intensity_factor = 2 # scales intensities so the output looks as the ref video 
-    
+    # TODO calc the param automatically
     mod3_spacing_mm = grid_detection["mods"][-1]['spacing_mm']
     grid_positions = np.cumsum(mod3_spacing_mm)
 
@@ -327,13 +357,7 @@ def get_frames(
     
     for i in frames_nums:
         camera_z = -i
-        scene_dict = get_nfa_scene_dict(
-            config,
-            fov,
-            frame_height,
-            frame_width,
-            camera_z,
-            has_rod_divergence=has_rod_divergence)
+        scene_dict = get_nfa_scene_dict(config,fov,frame_height,frame_width,camera_z,has_rod_divergence=has_rod_divergence)
         
         scene = mi.load_dict(scene_dict)
         
@@ -345,27 +369,17 @@ def get_frames(
                 
         yield i, bitmap_arr
         
+        
+        
 
-def create_video(
-    file_path,
-    frame_number,
-    frame_width,
-    frame_height,
-    fps = 25,
-    has_rod_divergence=False,
-    seed = 456):
-    # disabled because I don't have the right coded on my local
-    #fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+# imageio.imwrite(f"test_frame_{i:05}.png",arr)
 
-    frames = get_frames(
-        frame_number,
-        frame_width,
-        frame_height,
-        is_top_down = seed%2==0,
-        has_rod_divergence=has_rod_divergence,
-        seed = seed)
+def create_video(file_path,frame_number,frame_width,frame_height,fps = 25,has_rod_divergence=False):
+    fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")
+
     
+    
+    frames = get_frames(frame_number,frame_width,frame_height,has_rod_divergence=has_rod_divergence)
     frames = tqdm(frames,desc ='generating frames',total=frame_number)
     writer = cv2.VideoWriter(str(file_path), fourcc, fps, (frame_width,frame_height))
     for i,frame in frames:
@@ -376,38 +390,28 @@ def create_video(
 
     writer.release()
 
-
+timestamp = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S').replace(':','-')
 
 import os
 import pathlib
-import shutil
 
 output_video_dir = pathlib.Path("output")
 os.makedirs(output_video_dir, exist_ok = True)
-    
-for i in range(10):
-    
-    dt = datetime.fromtimestamp(time.time())
-    timestamp = dt.strftime('%Y-%m-%dT%H:%M:%S').replace(':','-')
-    
-    video_path = output_video_dir/ f'test-{timestamp}.mp4'
-    fps = 25
-    frames_count = 1000
-    create_video(
-        video_path,
-        frames_count, 
-        video_config['width'],
-        video_config['height'],
-        fps=fps,
-        has_rod_divergence=True,
-        seed = i)
+video_path = output_video_dir/ f'test-{timestamp}.avi'
+fps = 25
+frames_count = 500
+create_video(
+    video_path,
+    frames_count, 
+    video_config['width'],
+    video_config['height'],
+    fps=fps,
+    has_rod_divergence=True)
 
-    shutil.copy(video_path, output_video_dir/f'test{video_path.suffix}')
+import shutil
+shutil.copy(video_path, output_video_dir/'test.avi')
 
 print('done')
-```
-
-```python
 exit()
 ```
 

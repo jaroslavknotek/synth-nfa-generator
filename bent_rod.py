@@ -177,7 +177,7 @@ def get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers, grid_height
         for z_start,z_end, grid_end_margin, grid_start_margin in zip(z,z[1:],grid_heights_mm_per_node//2,grid_heights_mm_per_node[1:]//2):
             z_start_grid = z_start + grid_end_margin
             z_end_grid = z_end - grid_start_margin
-            x,y = bent_random.rand(2,1)*rod_divergence_mm*2 - rod_divergence_mm
+            x,y = bent_random.rand(2)*rod_divergence_mm*2 - rod_divergence_mm
             
             assert z_start_grid < z_end_grid            
             bezier_start = [rc_x,rc_y,z_start_grid]
@@ -195,13 +195,15 @@ def get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers, grid_height
             
             bezier_end = [rc_x,rc_y,z_end_grid]
             
-            nodes = np.stack([
+            
+            nodes_list = [
                 bezier_start,
                 bezier_middle_start,
                 bezier_middle_middle,
                 bezier_middle_end,
                 bezier_end
-            ]).T
+            ]
+            nodes = np.stack(nodes_list).T
                         
             bezier_piece = bezier.Curve.from_nodes(nodes)
             bezier_record = (z_start_grid,z_end_grid,bezier_piece)

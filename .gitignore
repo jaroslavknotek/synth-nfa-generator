@@ -133,3 +133,5 @@ dmypy.json
 activate.sh
 tmp/*
 output/
+
+*.blend1

@@ -1,43 +1,26 @@
----
-jupyter:
-  jupytext:
-    text_representation:
-      extension: .md
-      format_name: markdown
-      format_version: '1.3'
-      jupytext_version: 1.15.2
-  kernelspec:
-    display_name: cv_torch
-    language: python
-    name: cv_torch
----
+import pandas as pd
+import imageio
+import cv2
+import time 
 
-```python
-%load_ext autoreload
-%autoreload 2
-```
-
-```python
 from tqdm.auto import tqdm
-import time
 
-[ time.sleep(.2) for i in tqdm(range(10))]
-```
+from datetime import datetime
 
-```python
 import numpy as np
-import mitsuba as mi
-import matplotlib.pyplot as plt
+import pandas as pd
 
-#mi.set_variant('cuda_ad_spectral')
-mi.set_variant('cuda_ad_rgb')
+import mitsuba as mi
+
+
+
+
+
+mi.set_variant('cuda_ad_spectral')
 print("Is spectral", mi.is_spectral)
 
 from mitsuba import set_log_level,LogLevel
-set_log_level(LogLevel.Warn)
-```
-
-```python
+set_log_level(LogLevel.Error)
 
 video_config = {
     "width": 720,
@@ -95,56 +78,7 @@ config = {
     "grid_detection": grid_detection
     
 }
-```
 
-```python
-import warnings
-import h5py
-
-def load_ref_rods_image(ref_fuel_matrix_path, band_num = None):
-    
-    
-    try:
-        with h5py.File(ref_fuel_matrix_path, "r") as matrix_object:
-            bands_total = matrix_object["bands"][()]
-            band_num_resolved = band_num if band_num else bands_total//2
-            ref_img_full = matrix_object[f'band-{band_num_resolved:03}'][:].astype(float)
-
-
-        t,b,l,r, = 650,800, 100,700
-
-        plt.imshow(ref_img_full[:1200])
-        plt.axvline(100,)
-        plt.axvline(700)
-        plt.show()
-
-        return ref_img_full[t:b,l:r] /255
-    except FileNotFoundError as fe:
-        warnings.warn("Couldn't find file:{ref_fuel_matrix_path}")
-        return np.zeros((100,100))
-    
-
-ref_fuel_matrix = "/disk/knotek/video_matrices/1GO22-WTA6-F1-matrix.hdf5"
-ref_img = load_ref_rods_image(ref_fuel_matrix)
-
-print("Taking 20th band should take stuff 'above' camera. However, this assumption doesn't hold for videos with bottom-up camera movemet. \nAlways check the images if you see the header and notice the reflections on the grid")
-ref_img_band_10 = load_ref_rods_image(ref_fuel_matrix,20)
-
-print('shape', ref_img.shape)
-_,(ax1,ax2) = plt.subplots(2,1,figsize = (12,8))
-ax1.imshow(ref_img,cmap='gray',vmin=0,vmax=1)
-ax2.imshow(ref_img_band_10,cmap='gray',vmin=0,vmax=1)
-
-ax1.axis('off')
-ax2.axis('off')
-```
-
-```python
-plt.figure(figsize = (16,100))
-plt.imshow(ref_img,cmap='gray')
-```
-
-```python
 import rods_hexagon
 import scene_definition
 
@@ -164,16 +98,13 @@ def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, has_rod
     light_offset = config['measurements']['light_offset_mm'] #given by blueprints (approx)
     
     samples_per_pass = 32
+    
     #samples_per_pass = 128
     cam_light_intensity = 47100
     
     rods_bdsf = scene_definition.get_rods_bsdf(rods_gray_intensity, rods_bsdf_blend_factor, rods_material_alpha_u,rods_material_alpha_v)
     
-    nfa_curve,rods_group = scene_definition.generate_rods_group(
-        config, 
-        #has_rod_divergence= has_rod_divergence, 
-        bsdf=rods_bdsf
-    )
+    nfa_curve,rods_group = scene_definition.generate_rods_group(config, has_rod_divergence= has_rod_divergence, bsdf=rods_bdsf)
 
     grid_mod = config['grid_detection']["mods"][2]
     rod_height = np.sum(grid_mod['spacing_mm'])  
@@ -263,46 +194,6 @@ def add_grid(scene_dict, nfa_curve, nfa_height, grid_positions, config):
             "material":grid_material
         }
         scene_dict[f'grid_obj_{grid_z}'] = grid
-
-fov,height,width,crop_shift = 5.85,*ref_img.shape[:2],0
-
-fov = 28
-width=video_config['width']
-height=video_config['height']
-
-# Video frame scrop
-# fov,height,width,crop_shift = 22,video_config['height'],video_config['width'],59
-# height,width = 4000,ref_img.shape[1]
-camera_z= -3500
-#camera_z=-2000
-render_intensity_factor = 2
-
-scene_dict = get_nfa_scene_dict(config,fov,height,width,camera_z,has_rod_divergence=True)
-
-
-# scene_dict['constant'] = {
-#             'type': 'constant',
-#             'radiance': {
-#                 'type': 'rgb',
-#                 'value': .5,
-#             }
-#         }
-
-
-
-bitmap = render_scene(scene_dict)
-plt.imshow(bitmap)
-```
-
-```python
-import pandas as pd
-import imageio
-import cv2
-import time 
-
-from tqdm.auto import tqdm
-
-from datetime import datetime
 
 def get_frames(
     frames_count,
@@ -394,8 +285,6 @@ def create_video(
     frames = tqdm(frames,desc ='generating frames',total=frame_number)
     writer = cv2.VideoWriter(str(vid_path), fourcc, fps, (frame_width,frame_height))
     for i,frame in frames:
-        #f = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-        print(datetime.now(), 'processed', f"{i/frame_number}")
         f = (frame *255).astype(np.uint8) 
         writer.write(f)
         
@@ -414,7 +303,6 @@ import shutil
 
 output_video_dir = pathlib.Path("output")
 os.makedirs(output_video_dir, exist_ok = True)
-    
 dt = datetime.fromtimestamp(time.time())
 timestamp = dt.strftime('%Y-%m-%dT%H:%M:%S').replace(':','-')
 for i in range(6):
@@ -431,17 +319,8 @@ for i in range(6):
         video_config['width'],
         video_config['height'],
         fps=fps,
-        #has_rod_divergence=True,
+        has_rod_divergence=True,
         seed = i)
 
 
 print('done')
-```
-
-```python
-exit()
-```
-
-```python
-
-```

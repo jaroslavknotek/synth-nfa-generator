@@ -32,22 +32,34 @@ set_log_level(LogLevel.Warn)
 ```
 
 ```python
-grid_teeth_wta_ply_path ='assets/grid_wta.ply'
-grid_teeth_tvel2_ply_path = 'assets/grid_tvel2.ply'
+import mypyply
+import pathlib
+assets_path = pathlib.Path('assets')
+grid_teeth_models_paths = list(assets_path.glob("grid_*.ply"))
+grid_teeth_types_mesh_data = [mypyply.read_ply(p) for p in grid_teeth_models_paths]
+grid_teeth_models_paths
 ```
 
 ```python
+# def render_scene(scene_dict):
+#     scene = mi.load_dict(scene_dict)
+#     img = mi.render(scene)
+#     return mi.util.convert_to_bitmap(img)
+
 def render_scene(scene_dict):
+    
     scene = mi.load_dict(scene_dict)
     img = mi.render(scene)
-    return mi.util.convert_to_bitmap(img)
-```
-
-```python
-import mypyply
-
-teeth_paths = [grid_teeth_wta_ply_path,grid_teeth_tvel2_ply_path]
-grid_teeth_types_mesh_data = [mypyply.read_ply(p) for p in teeth_paths]
+    bitmap = mi.Bitmap(img).convert(
+        mi.Bitmap.PixelFormat.RGB, 
+        mi.Struct.Type.Float32, 
+        srgb_gamma=True
+    )
+    
+    arr_bitmap= np.array(bitmap)
+    # clipping
+    # arr_bitmap[arr_bitmap>1] = 1
+    return arr_bitmap
 ```
 
 ```python
@@ -62,52 +74,6 @@ fov = 20
 samples_per_pass = 8
 cam_light_intensity = 47100
 light_offset = 228
-
-sensor = scene_definition.get_ring_camera(
-    frame_width,
-    frame_height,
-    camera_x,
-    camera_distance, 
-    camera_z, 
-    fov,
-    spp=samples_per_pass
-)
-left_light = scene_definition.get_ring_light(camera_x+light_offset//2, camera_distance,camera_z, cam_light_intensity)
-right_light = scene_definition.get_ring_light(camera_x-light_offset//2, camera_distance,camera_z, cam_light_intensity)
-    
-scene_dict = {
-    "type" : "scene",
-    # "rods_material":rods_material,
-    # "grids_material":grids_material,
-    "myintegrator" : {
-        "type" : "path",
- #       "type":"volpath",
-        "samples_per_pass":samples_per_pass,
-        "max_depth": 8,
-    },
-    "light":{
-        'type': 'constant',
-        'radiance': {
-            'type': 'rgb',
-            'value': 1.0,
-        }
-    },
-    # "left_light": left_light,
-    # "right_light": right_light,
-    
-    "sensor":sensor,
-    
-    "test_obj":{
-        'type': 'ply',
-        #'filename': grid_teeth_tvel2_ply_path,
-        'filename': grid_teeth_wta_ply_path,
-        'flip_normals': True
-    },
-    
-}
-
-img = render_scene(scene_dict)
-plt.imshow(img)
 ```
 
 ```python
@@ -195,7 +161,7 @@ rods_bdsf = scene_definition.get_rods_bsdf(
 )
 
 
-nfa_curve,rods_group = scene_definition.generate_rods_group(
+nfa_curve,curves, rods_group = scene_definition.generate_rods_group(
     config, 
     #has_rod_divergence= has_rod_divergence, 
     bsdf=rods_bdsf,
@@ -205,62 +171,26 @@ rods_dict = dict((f"rod_{i}",rod) for i,rod in enumerate(rods_group))
 ```
 
 ```python
-grid_material = config['fuel_material']['grids']
-alpha_u = grid_material['material_alpha_u']
-alpha_v = grid_material['material_alpha_v']
-gray_intensity =grid_material['diffuse_gray_intensity']
-bsdf_blend_factor = grid_material['metal_to_bsdf_blend_factor']
+grid_material_config = config['fuel_material']['grids']
+alpha_u = grid_material_config['material_alpha_u']
+alpha_v = grid_material_config['material_alpha_v']
+gray_intensity =grid_material_config['diffuse_gray_intensity']
+bsdf_blend_factor = grid_material_config['metal_to_bsdf_blend_factor']
 bsdf_blend_factor = .6
 grid_material = scene_definition.get_grid_bsdf(gray_intensity,bsdf_blend_factor,alpha_u,alpha_v)
 ```
 
 ```python
-# import drjit as dr
 
-# N = 100
-# frequency = 12.0
-# amplitude = 0.4
+```
 
-# # Generate the vertex positions
-# theta = dr.linspace(mi.Float, 0.0, dr.two_pi, N)
-# x, y = dr.sincos(theta)
-# z = amplitude * dr.sin(theta * frequency)
-# vertex_pos = mi.Point3f(x, y, z)
-
-# # Move the last vertex to the center
-# vertex_pos[dr.eq(dr.arange(mi.UInt32, N), N - 1)] = 0.0
-
-# # Generate the face indices
-# idx = dr.arange(mi.UInt32, N - 1)
-# face_indices = mi.Vector3u(N - 1, (idx + 1) % (N - 2), idx % (N - 2))
-
-# mesh = mi.Mesh(
-#     "wavydisk",
-#     vertex_count=N,
-#     face_count=N - 1,
-#     has_vertex_normals=False,
-#     has_vertex_texcoords=False,
-# )
-
+```python
+plt.plot(rod_tops[:,0],rod_tops[:,1],'.')
 ```
 
 ```python
 import pathlib
 import tempfile
-```
-
-```python
-def grid_dist_from_center(
-    visible_rod_count, 
-    rod_width_mm,
-    gap_between_rods_width_mm
-):
-    rod_w_gap_mm = rod_width_mm + gap_between_rods_width_mm
-    total_mm = rod_w_gap_mm * visible_rod_count - rod_width_mm
-    
-    return np.sqrt(total_mm**2-(total_mm/2)**2) + 3
-
-
 ```
 
 ```python
@@ -289,10 +219,6 @@ grid_mod = grid_detection['mods'][0]
 ```
 
 ```python
-
-```
-
-```python
 rod_height = np.sum(grid_mod['spacing_mm'])  
 camera_z_ration = 1-np.abs(camera_z/rod_height)
 #camera_x,_,_ = nfa_curve.evaluate_multi(np.array([camera_z_ration]))
@@ -309,99 +235,89 @@ pos_x,pos_y,pos_z
 ```python
 import grid_mesh as gm    
 
-mesh_data = grid_teeth_types_mesh_data[1]
+```
 
-points = mesh_data['points']
-face = mesh_data['mesh']
-p_x = points.x
-p_y = points.y
-p_z = points.z
-
-v_1 = face.v1
-v_2 = face.v2
-v_3 = face.v3
-
-p_x,p_y,p_z,v_1,v_2,v_3 = gm.mirror_down(p_x,p_y,p_z,v_1,v_2,v_3)
-p_x,p_y,p_z,v_1,v_2,v_3 = gm.array_left(p_x,p_y,p_z,v_1,v_2,v_3,n=rod_count-2)
-
-
-
-distance = -grid_dist_from_center(11,9.1,3.65)  #mm
-p_x,p_y,p_z,v_1,v_2,v_3 = gm.array_hexagon(distance,p_x,p_y,p_z,v_1,v_2,v_3)
-
-vertex_pos = mi.Point3f(
-    np.float32(p_x),
-    np.float32(p_y),
-    np.float32(p_z)
-)
-face_indices = mi.Vector3u([
-    np.float32(v_1),
-    np.float32(v_2),
-    np.float32(v_3)
-])
+```python
+import scene_definition
+tips_scenes = scene_definition.get_tips(curves, config)
 ```
 
 ```python
 from matplotlib import pyplot as plt
 
+cam_light_intensity = 100_000 *5
+camera_distance = 100 * 4
 
-cam_distance = 600
-cam_z = -1000
-cam_z = -pos_z
 
-mesh = mi.Mesh(
-    "grid_teeth",
-    vertex_count=len(vertex_pos[0]),
-    face_count=len(face_indices[0]),
-    has_vertex_normals=False,
-    has_vertex_texcoords=False,
-)
+camera_z = -pos_z
+camera_z = 200
+camera_x = pos_x
 
-mesh_params = mi.traverse(mesh)
-mesh_params["vertex_positions"] = dr.ravel(vertex_pos)
-mesh_params["faces"] = dr.ravel(face_indices)
+mesh_data = grid_teeth_types_mesh_data[2]
+mesh = gm.create_grid_mesh_from_tooth(mesh_data,rod_count)
 
 temp_dir = pathlib.Path(tempfile.TemporaryDirectory().name)
 temp_dir.mkdir(parents=True,exist_ok=True)
 temp_path = str(temp_dir/'grid.ply')
 mesh.write_ply(temp_path)
 
+samples_per_pass = 256
+sensor = scene_definition.get_ring_camera(
+    frame_width,
+    frame_height,
+    camera_x,
+    camera_distance, 
+    camera_z, 
+    fov,
+    spp=samples_per_pass
+)
+
+sensor_my = {
+    "type": "perspective",
+    "to_world": mi.ScalarTransform4f.look_at(
+        origin=[0, camera_distance, camera_z], target=[0, 0, 0], up=[0, 0, 1]
+    ),
+}
+
+sensor = sensor_my
+left_light = scene_definition.get_ring_light(camera_x+light_offset//2, camera_distance,camera_z, cam_light_intensity)
+right_light = scene_definition.get_ring_light(camera_x-light_offset//2, camera_distance,camera_z, cam_light_intensity)
 
 scene_dict = {
     "type": "scene",
     "integrator": {"type": "path"},
-    "light": {"type": "constant"},
-    "sensor": {
-        "type": "perspective",
-        "to_world": mi.ScalarTransform4f.look_at(
-            origin=[0, -cam_distance, cam_z + 50], 
-            target=[0, 0, cam_z], 
-            up=[0, 0, 1]
-        ),
-    },
-    "test_grid": {        
-        'type': 'ply',
-        'filename': temp_path,
-        #'flip_normals': True
-        "material":grid_material,
-        "to_world" :mi.ScalarTransform4f.translate([pos_x,pos_y,cam_z]),
+    "sensor":sensor,
+    #"light": {"type": "constant"},
+    "left_light": left_light,
+    "right_light": right_light,
+#     "test_grid": {        
+#         'type': 'ply',
+#         'filename': temp_path,
+#         #'filename': 'assets/grid_wta_dented.ply',
+#         #'flip_normals': True
         
-        # "material": {
-        #     'type': 'diffuse',
-        #     'reflectance': {
-        #         'type': 'rgb',
-        #         'value': [1, 0, 1]
-        #     }
-        # }
-    }
+#         "to_world" :mi.ScalarTransform4f.translate([pos_x,pos_y,camera_z]),
+        
+#         "material":grid_material,
+#         # "material": {
+#         #     'type': 'diffuse',
+#         #     'reflectance': {
+#         #         'type': 'rgb',
+#         #         'value': [1, 0, 1]
+#         #     }
+#         # }
+#     }
     
 }
 
+
+
 scene_dict.update(rods_dict)
+scene_dict.update(tips_scenes)
 
 img = render_scene(scene_dict)
 
-plt.imshow(img)
+plt.imshow(img,vmax = 1)
 ```
 
 ```python

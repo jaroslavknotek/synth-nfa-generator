@@ -5,11 +5,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.4
+      jupytext_version: 1.15.2
   kernelspec:
-    display_name: synthdata-Cub-fwJX-py3.9
+    display_name: synt-nfa
     language: python
-    name: synthdata-cub-fwjx-py3.9
+    name: .venv
 ---
 
 ```python

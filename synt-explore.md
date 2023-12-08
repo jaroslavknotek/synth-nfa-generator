@@ -147,6 +147,7 @@ plt.imshow(ref_img,cmap='gray')
 ```python
 import rods_hexagon
 import scene_definition
+import grid_mesh as gm
 
 
 
@@ -169,7 +170,7 @@ def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, has_rod
     
     rods_bdsf = scene_definition.get_rods_bsdf(rods_gray_intensity, rods_bsdf_blend_factor, rods_material_alpha_u,rods_material_alpha_v)
     
-    nfa_curve,rods_group = scene_definition.generate_rods_group(
+    nfa_curve,curves,rods_group = scene_definition.generate_rods_group(
         config, 
         #has_rod_divergence= has_rod_divergence, 
         bsdf=rods_bdsf
@@ -185,6 +186,7 @@ def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, has_rod
     sensor = scene_definition.get_ring_camera(frame_width,frame_height,camera_x,camera_distance, camera_z, fov,spp=samples_per_pass)
     
     rods_dict = dict((f"rod_{i}",rod) for i,rod in enumerate(rods_group))
+    tips_scenes = scene_definition.get_tips(curves, config)
     scene_dict = {
         "type" : "scene",
         # "rods_material":rods_material,
@@ -207,6 +209,7 @@ def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, has_rod
         # }
     }
     scene_dict.update(rods_dict)
+    scene_dict.update(tips_scenes)
     
     mod3_spacing_mm = grid_mod['spacing_mm']
     np.cumsum(mod3_spacing_mm)
@@ -227,7 +230,23 @@ def render_scene(scene_dict):
     return arr_bitmap
 
 
-def add_grid(scene_dict, nfa_curve, nfa_height, grid_positions, config):
+import tempfile
+import mypyply
+import pathlib
+assets_path = pathlib.Path('assets')
+grid_teeth_models_paths = list(assets_path.glob("*.ply"))
+grid_teeth_types_mesh_data = [mypyply.read_ply(p) for p in grid_teeth_models_paths]
+grid_teeth_models_paths
+mesh_data = grid_teeth_types_mesh_data[2]
+
+def add_grid(scene_dict, nfa_curve, nfa_height, grid_positions, config):    
+    rod_count = 11
+    mesh = gm.create_grid_mesh_from_tooth(mesh_data,rod_count)
+
+    temp_dir = pathlib.Path(tempfile.TemporaryDirectory().name)
+    temp_dir.mkdir(parents=True,exist_ok=True)
+    temp_path = str(temp_dir/'grid.ply')
+    mesh.write_ply(temp_path)
     
     
     grid_relative_height = 1-np.abs(grid_positions/nfa_height)
@@ -243,23 +262,24 @@ def add_grid(scene_dict, nfa_curve, nfa_height, grid_positions, config):
     
     angles = np.rad2deg(np.arctan(dist_x/dist_y))
     
-    
-    
-    
-    
     grid_material = config['fuel_material']['grids']
     alpha_u = grid_material['material_alpha_u']
     alpha_v = grid_material['material_alpha_v']
     gray_intensity =grid_material['diffuse_gray_intensity']
     bsdf_blend_factor = grid_material['metal_to_bsdf_blend_factor']
     bsdf_blend_factor = .6
-    grid_material = scene_definition.get_grid_bsdf(gray_intensity,bsdf_blend_factor,alpha_u,alpha_v)
-
+    
     for (grid_z,grid_x,a) in zip(grid_positions,grid_xs,angles):    
+        grid_material = scene_definition.get_grid_bsdf(gray_intensity,bsdf_blend_factor,alpha_u,alpha_v)
+        gm_id = grid_material['id']
+        # HACK
+        
+        grid_material['id'] = f"{gm_id}_{grid_z}"
+        
         grid = {
-            "type": "obj",
-            "filename": "assets/wta-grid.obj",
-            "to_world": mi.ScalarTransform4f.translate([grid_x,118,-grid_z]).scale(93).rotate([1, 0, 0], angle=-90).rotate([0,0,1],angle=-a),
+            "type": "ply",
+            "filename": temp_path,
+            "to_world": mi.ScalarTransform4f.translate([grid_x,0,-grid_z]),
             "material":grid_material
         }
         scene_dict[f'grid_obj_{grid_z}'] = grid
@@ -273,8 +293,9 @@ height=video_config['height']
 # Video frame scrop
 # fov,height,width,crop_shift = 22,video_config['height'],video_config['width'],59
 # height,width = 4000,ref_img.shape[1]
-camera_z= -3500
-#camera_z=-2000
+camera_z= -1830
+
+camera_z=0
 render_intensity_factor = 2
 
 scene_dict = get_nfa_scene_dict(config,fov,height,width,camera_z,has_rod_divergence=True)
@@ -292,6 +313,10 @@ scene_dict = get_nfa_scene_dict(config,fov,height,width,camera_z,has_rod_diverge
 
 bitmap = render_scene(scene_dict)
 plt.imshow(bitmap)
+```
+
+```python
+assert False
 ```
 
 ```python

@@ -4,6 +4,50 @@ import bezier
 import mitsuba as mi
 import os
 
+
+class PiecewiseBezierCurve():
+    
+    def __init__(self, bezier_records,nfa_height):
+        self.nfa_height=nfa_height
+        self.bezier_records = bezier_records
+    
+    def evaluate_multi(self,zs):
+        
+        # Dirty solution - poc
+        
+        found_xyz = []
+        for z in zs:
+            last_end = None
+            last_end_point = None
+            z = z*self.nfa_height
+            
+            for i,(start,end,curve) in enumerate(self.bezier_records):
+                if z < start:
+                    start_point = curve.evaluate_multi(np.array([0.0])).T[0]
+                    alpha = (last_end - z)/(start - z)
+                    
+                    x,y,_ =  last_end_point*alpha + start_point*(1-alpha)
+                    if y>5000:
+                        print(alpha, last_end_point, start_point)
+                        raise Exception("here")
+                    found_xyz.append([x,y,z])
+                    break
+                elif z > end:
+                    last_end_point = curve.evaluate_multi(np.array([1.0])).T[0]
+                    last_end = end
+                    continue
+                else:
+                    redone_point = (z - start)/(end-start)                    
+                    x,y,_ = curve.evaluate_multi(np.array([redone_point])).T[0]
+                    found_xyz.append([x,y,z])
+                    break 
+        
+        return np.stack(found_xyz).T
+    
+    def evaluate(self,zs):
+        
+        return self.evaluate_multi([zs])
+    
 def get_twisted_nfa_mesh(
     config, 
     rod_centers,
@@ -21,7 +65,19 @@ def get_twisted_nfa_mesh(
     spacing_mm = np.concatenate([[0], spacing_mm])
     bent_random = np.random.RandomState(seed)
     nfa_curve, curves = get_nfa_curves(spacing_mm, rod_centers,grid_heights_mm,max_divergence_mm,max_twist_bow_mm,bent_random)
-    rod_vertices_faces =np.array([get_curved_rod(nfa_curve,curve,rod_bow_segments,rod_circle_segments,radius=cylinder_radius) for curve in curves],dtype=object)
+    rod_vertices_faces =np.array(
+        [
+            get_curved_rod(
+                nfa_curve,
+                curve,
+                rod_bow_segments,
+                rod_circle_segments,
+                radius=cylinder_radius
+            )
+            for curve in curves
+        ],
+        dtype=object
+    )
     v,f = bake_rod_geometry(rod_vertices_faces[:,0],rod_vertices_faces[:,1])    
     mesh = get_rod_mesh(v,f)
     
@@ -37,7 +93,7 @@ def get_twisted_nfa_mesh(
         "material":bsdfmaterial
     }]
     if return_curve:
-        return nfa_curve,res
+        return nfa_curve,curves,res
     else: 
         return res
 
@@ -125,44 +181,6 @@ def get_nfa_bow_curve(nfa_height_mm, max_twist_bow_mm = 0):
     return get_curve(start_point, end_point ,max_twist_bow_mm)
 
 
-class PiecewiseBezierCurve():
-    
-    def __init__(self, bezier_records,nfa_height):
-        self.nfa_height=nfa_height
-        self.bezier_records = bezier_records
-    
-    def evaluate_multi(self,zs):
-        
-        # Dirty solution - poc
-        
-        found_xyz = []
-        for z in zs:
-            last_end = None
-            last_end_point = None
-            z = z*self.nfa_height
-            
-            for i,(start,end,curve) in enumerate(self.bezier_records):
-                if z < start:
-                    start_point = curve.evaluate_multi(np.array([0.0])).T[0]
-                    alpha = (last_end - z)/(start - z)
-                    
-                    x,y,_ =  last_end_point*alpha + start_point*(1-alpha)
-                    if y>5000:
-                        print(alpha, last_end_point, start_point)
-                        raise Exception("here")
-                    found_xyz.append([x,y,z])
-                    break
-                elif z > end:
-                    last_end_point = curve.evaluate_multi(np.array([1.0])).T[0]
-                    last_end = end
-                    continue
-                else:
-                    redone_point = (z - start)/(end-start)                    
-                    x,y,_ = curve.evaluate_multi(np.array([redone_point])).T[0]
-                    found_xyz.append([x,y,z])
-                    break 
-        
-        return np.stack(found_xyz).T
 
 def get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers, grid_heights_mm, spacing_mm,rod_divergence_mm,bent_random):
     rods = []    

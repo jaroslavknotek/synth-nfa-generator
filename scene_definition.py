@@ -238,6 +238,37 @@ def generate_rods_group(config, max_twist_bow_mm = 50, max_divergence_mm = 5, bs
 
         return rod_objs
     
+def get_tips(curves, config,tip_ply = 'assets/tip_model.ply'):
+    rod_tops = np.array([c.evaluate(0) for c in curves])
+    tips_scenes = {}
+    
+    rods_material = config['fuel_material']['rods']
+    rods_material_alpha_u = rods_material['material_alpha_u']
+    rods_material_alpha_v = rods_material['material_alpha_v']
+    rods_gray_intensity =rods_material['diffuse_gray_intensity']
+    rods_bsdf_blend_factor = rods_material['zircon_to_bsdf_blend_factor']
+
+    for i,(x,y,_) in enumerate(rod_tops):
+        rods_bdsf = get_rods_bsdf(rods_gray_intensity, rods_bsdf_blend_factor, rods_material_alpha_u,rods_material_alpha_v)
+        rods_bdsf['id'] = f'tip_material_{i}'
+        offset = 9.1 + 3.65
+        y_offset = np.sqrt(offset**2 - (offset/2)**2)
+        y_shift =  offset - y_offset *12
+        tips_scenes[f"tip_{i}"] = {        
+            'type': 'ply',
+            'filename': tip_ply,
+            "to_world" :mi.ScalarTransform4f.translate([x,y+y_shift,0]),
+
+            "material":rods_bdsf,
+            # "material": {
+            #     'type': 'diffuse',
+            #     'reflectance': {
+            #         'type': 'rgb',
+            #         'value': [1, 0, 1]
+            #     }
+            # }
+        }
+    return tips_scenes
 # def generate_rods_group(config, bsdf=None):
 #     rod_count = 11
 #     rod_height = 4500

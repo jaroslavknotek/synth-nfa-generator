@@ -1,6 +1,120 @@
+import drjit as dr
+import mitsuba as mi
 import numpy as np
 
-def mirror_down(p_x,p_y,p_z,v_1,v_2,v_3):
+
+def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
+    points = tooth_mesh_data['points']
+    face = tooth_mesh_data['mesh']
+
+    p_x = points.x
+    p_y = points.y
+    p_z = points.z
+
+    n_x = points.nx
+    n_y = points.ny
+    n_z = points.nz
+
+    v_1 = face.v1
+    v_2 = face.v2
+    v_3 = face.v3
+    
+    
+
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = mirror_down(p_x,p_y,p_z,v_1,v_2,v_3, n_x,n_y,n_z)
+
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = array_left(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,n=rod_count-2)
+
+    grid_info = p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
+
+    distance = -grid_dist_from_center(11,9.1,3.65)  #mm
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = array_hexagon(distance,p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z)
+
+
+    px,py,pz,*_=grid_info
+
+    min_px_idc = np.squeeze(np.argwhere(px==np.min(px)))
+    left_pz = p_z[min_px_idc]
+    min_px_idc = min_px_idc[np.argsort(left_pz)]
+
+    max_px_idc = np.squeeze(np.argwhere(px == np.max(px)))
+    right_pz = p_z[max_px_idc]
+    max_px_idc = max_px_idc[np.argsort(right_pz)]
+
+    left_indices = (min_px_idc[None] + np.arange(6)[:,None]*len(px))
+    right_indices = (max_px_idc[None] + np.arange(6)[:,None]*len(px))
+    right_indices = np.roll(right_indices,-1,axis=0)
+
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,left_indices,right_indices)
+    
+    vertex_pos = mi.Point3f(
+        np.float32(p_x),
+        np.float32(p_y),
+        np.float32(p_z)
+    )
+    vertex_norm = mi.Vector3f(
+        np.float32(n_x),
+        np.float32(n_y),
+        np.float32(n_z)
+    )
+
+    face_indices = mi.Vector3u([
+        np.float32(v_1),
+        np.float32(v_2),
+        np.float32(v_3)
+    ])
+    
+    mesh = mi.Mesh(
+        "grid_teeth",
+        vertex_count=len(vertex_pos[0]),
+        face_count=len(face_indices[0]),
+        has_vertex_normals=False,
+        has_vertex_texcoords=False,
+    )
+
+    mesh_params = mi.traverse(mesh)
+    mesh_params["vertex_positions"] = dr.ravel(vertex_pos)
+    mesh_params["faces"] = dr.ravel(face_indices)
+    mesh_params["vertex_normals"] = dr.ravel(vertex_norm)
+    
+    return mesh
+
+def fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,left_indices,right_indices):
+    # add faces
+    stich_v1=[]
+    stich_v2=[]
+    stich_v3=[]
+    for l,r in zip(left_indices,right_indices):
+        for a,b,c in zip(l,l[1:],r):
+            stich_v1.append(a)
+            stich_v2.append(b)
+            stich_v3.append(c)
+
+        for a,b,c in zip(l[1:],r[1:],r):
+            stich_v1.append(a)
+            stich_v2.append(b)
+            stich_v3.append(c)
+
+    v_1 = np.concatenate([v_1,stich_v1])
+    v_2 = np.concatenate([v_2,stich_v2])
+    v_3 = np.concatenate([v_3,stich_v3])
+    
+    n_x = n_x.copy()
+    n_y = n_y.copy()
+    
+    # fix normals with averaged normals
+    for l,r in zip(left_indices,right_indices):
+    
+        n_x[l] = (n_x[l] + n_x[r])/2
+        n_x[r] = n_x[l]
+
+        n_y[l] = (n_y[l] + n_y[r])/2
+        n_y[r] = n_y[l]
+        
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
+
+
+def mirror_down(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z):
     
     #return p_x,p_y,p_z,v_1,v_2,v_3
     #return p_x,p_y,-p_z,v_1,v_3,v_2
@@ -17,18 +131,23 @@ def mirror_down(p_x,p_y,p_z,v_1,v_2,v_3):
     v_2 = np.concatenate([v_2,v_2_m])
     v_3 = np.concatenate([v_3,v_3_m])
     
-    return p_x,p_y,p_z,v_1,v_2,v_3
+    n_x = np.concatenate([n_x,n_x])
+    n_y = np.concatenate([n_y,n_y])
+    n_z = np.concatenate([n_z,-n_z])
     
-def array_left(p_x,p_y,p_z,v_1,v_2,v_3,n=1):
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
+    
+def array_left(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,n=1,width = None):
     
     if n==0:
-        return p_x,p_y,p_z,v_1,v_2,v_3
+        return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
 
     n_points = len(p_x)
     
-    x_min = np.min(p_x)
-    x_max = np.max(p_x)
-    width = x_max - x_min
+    if width is None:
+        x_min = np.min(p_x)
+        x_max = np.max(p_x)
+        width = x_max - x_min
     width_shifts = -np.arange(0,n+1) *width
     
     p_x = np.concatenate(np.stack([p_x]*(n+1)) + width_shifts[:,None])
@@ -40,7 +159,11 @@ def array_left(p_x,p_y,p_z,v_1,v_2,v_3,n=1):
     v_2 = np.concatenate([v_2 + n_points*i for i in range(0,n+1)])
     v_3 = np.concatenate([v_3 + n_points*i for i in range(0,n+1)])
     
-    return p_x,p_y,p_z,v_1,v_2,v_3
+    n_x = np.concatenate([n_x]*(n+1))
+    n_y = np.concatenate([n_y]*(n+1))
+    n_z = np.concatenate([n_z]*(n+1))
+    
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
 
 def rotate_2d(deg, points):
     assert points.shape[0] == 2, "array should have 2 rows and n columns"
@@ -51,7 +174,7 @@ def rotate_2d(deg, points):
     rot = np.array([[c,s],[-s,c]])
     return np.dot(rot,points)   
 
-def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3):
+def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z):
     
     deg = 60
     n_points = len(p_x)
@@ -68,11 +191,30 @@ def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3):
         p_x = np.concatenate([p_x,r_p_x])
         p_y = np.concatenate([p_y,r_p_y])
         
+        r_n_x,r_n_y = rotate_2d(
+            deg*i,
+            np.stack([n_x[:n_points],n_y[:n_points]])
+        )
+        
+        n_x = np.concatenate([n_x,r_n_x])
+        n_y = np.concatenate([n_y,r_n_y])
+        n_z = np.concatenate([n_z,n_z[:n_points]])
+        
     p_z = np.concatenate([p_z]*6)
         
     v_1 = np.concatenate([v_1 + n_points*i for i in range(0,6)])
     v_2 = np.concatenate([v_2 + n_points*i for i in range(0,6)])
     v_3 = np.concatenate([v_3 + n_points*i for i in range(0,6)])
         
-    return p_x,p_y,p_z,v_1,v_2,v_3
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
+
+def grid_dist_from_center(
+    visible_rod_count, 
+    rod_width_mm,
+    gap_between_rods_width_mm
+):
+    rod_w_gap_mm = rod_width_mm + gap_between_rods_width_mm
+    total_mm = rod_w_gap_mm * visible_rod_count - rod_width_mm
+    
+    return np.sqrt(total_mm**2-(total_mm/2)**2) + 3
 

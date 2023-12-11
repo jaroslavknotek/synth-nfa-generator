@@ -59,26 +59,33 @@ def get_twisted_nfa_mesh(
     rod_bow_segments = 20, 
     rod_circle_segments = 32,
     seed = 678,
-    return_curve = False):
+    return_curve = False,
+    z_displacement = None
+):
     
     cylinder_radius = config['measurements']['rod_width_mm']/2
     spacing_mm = np.concatenate([[0], spacing_mm])
     bent_random = np.random.RandomState(seed)
     nfa_curve, curves = get_nfa_curves(spacing_mm, rod_centers,grid_heights_mm,max_divergence_mm,max_twist_bow_mm,bent_random)
-    rod_vertices_faces =np.array(
-        [
-            get_curved_rod(
-                nfa_curve,
-                curve,
-                rod_bow_segments,
-                rod_circle_segments,
-                radius=cylinder_radius
-            )
-            for curve in curves
-        ],
-        dtype=object
-    )
-    v,f = bake_rod_geometry(rod_vertices_faces[:,0],rod_vertices_faces[:,1])    
+    rod_vertices_faces =        [
+        get_curved_rod(
+            nfa_curve,
+            curve,
+            rod_bow_segments,
+            rod_circle_segments,
+            radius=cylinder_radius
+        )
+        for curve in curves
+    ]
+    rod_vertices =  np.array([r[0] for r in rod_vertices_faces])
+    
+    if z_displacement is None:
+        z_displacement = 0
+    rod_vertices[:,:,2] += z_displacement
+    
+    rod_faces =  [r[1] for r in rod_vertices_faces]
+    
+    v,f = bake_rod_geometry(rod_vertices,rod_faces)    
     mesh = get_rod_mesh(v,f)
     
     os.makedirs("tmp",exist_ok=True)
@@ -283,7 +290,7 @@ def get_curved_rod(nfa_curve,curve, rod_segments, cylinder_faces, radius = 1):
             # face_indices.append([a,c,b])
             # face_indices.append([c,d,b])
         
-    return vertex_pos, face_indices
+    return np.array(vertex_pos), np.array(face_indices,dtype=np.int32)
 
 
 def get_rod_geometry(rod_segments,cylinder_faces, radius = 1):

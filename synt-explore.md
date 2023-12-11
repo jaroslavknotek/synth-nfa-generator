@@ -5,11 +5,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.15.2
+      jupytext_version: 1.14.6
   kernelspec:
-    display_name: cv_torch
+    display_name: torch_cv
     language: python
-    name: cv_torch
+    name: torch_cv
 ---
 
 ```python
@@ -98,60 +98,13 @@ config = {
 ```
 
 ```python
-import warnings
-import h5py
-
-def load_ref_rods_image(ref_fuel_matrix_path, band_num = None):
-    
-    
-    try:
-        with h5py.File(ref_fuel_matrix_path, "r") as matrix_object:
-            bands_total = matrix_object["bands"][()]
-            band_num_resolved = band_num if band_num else bands_total//2
-            ref_img_full = matrix_object[f'band-{band_num_resolved:03}'][:].astype(float)
-
-
-        t,b,l,r, = 650,800, 100,700
-
-        plt.imshow(ref_img_full[:1200])
-        plt.axvline(100,)
-        plt.axvline(700)
-        plt.show()
-
-        return ref_img_full[t:b,l:r] /255
-    except FileNotFoundError as fe:
-        warnings.warn("Couldn't find file:{ref_fuel_matrix_path}")
-        return np.zeros((100,100))
-    
-
-ref_fuel_matrix = "/disk/knotek/video_matrices/1GO22-WTA6-F1-matrix.hdf5"
-ref_img = load_ref_rods_image(ref_fuel_matrix)
-
-print("Taking 20th band should take stuff 'above' camera. However, this assumption doesn't hold for videos with bottom-up camera movemet. \nAlways check the images if you see the header and notice the reflections on the grid")
-ref_img_band_10 = load_ref_rods_image(ref_fuel_matrix,20)
-
-print('shape', ref_img.shape)
-_,(ax1,ax2) = plt.subplots(2,1,figsize = (12,8))
-ax1.imshow(ref_img,cmap='gray',vmin=0,vmax=1)
-ax2.imshow(ref_img_band_10,cmap='gray',vmin=0,vmax=1)
-
-ax1.axis('off')
-ax2.axis('off')
-```
-
-```python
-plt.figure(figsize = (16,100))
-plt.imshow(ref_img,cmap='gray')
-```
-
-```python
 import rods_hexagon
 import scene_definition
 import grid_mesh as gm
 
 
 
-def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, has_rod_divergence = False):
+def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, z_displacement, has_rod_divergence = False):
     
     #get_rods_bsdf(gray_intensity,bsdf_blend_factor,material_alpha_u,material_alpha_v,  spectral_params = None)
     
@@ -173,7 +126,8 @@ def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, has_rod
     nfa_curve,curves,rods_group = scene_definition.generate_rods_group(
         config, 
         #has_rod_divergence= has_rod_divergence, 
-        bsdf=rods_bdsf
+        bsdf=rods_bdsf,
+        z_displacement = z_displacement
     )
 
     grid_mod = config['grid_detection']["mods"][2]
@@ -208,6 +162,12 @@ def get_nfa_scene_dict(config, fov, frame_height, frame_width, camera_z, has_rod
         #     }
         # }
     }
+    
+#     rand_high =  np.random.random(size=len(rods_dict))
+    
+    for rh,(k,v) in zip(z_displacement, tips_scenes.items()):    
+        v["to_world"] = v["to_world"].translate([0,0,rh])
+    
     scene_dict.update(rods_dict)
     scene_dict.update(tips_scenes)
     
@@ -284,7 +244,9 @@ def add_grid(scene_dict, nfa_curve, nfa_height, grid_positions, config):
         }
         scene_dict[f'grid_obj_{grid_z}'] = grid
 
-fov,height,width,crop_shift = 5.85,*ref_img.shape[:2],0
+    
+
+fov,crop_shift = 5.85,0
 
 fov = 28
 width=video_config['width']
@@ -295,10 +257,10 @@ height=video_config['height']
 # height,width = 4000,ref_img.shape[1]
 camera_z= -1830
 
-camera_z=0
 render_intensity_factor = 2
 
-scene_dict = get_nfa_scene_dict(config,fov,height,width,camera_z,has_rod_divergence=True)
+z_displacement = (np.random.random(size =331) * 5)[:,None]
+scene_dict = get_nfa_scene_dict(config,fov,height,width,camera_z,z_displacement,has_rod_divergence=True)
 
 
 # scene_dict['constant'] = {
@@ -311,6 +273,11 @@ scene_dict = get_nfa_scene_dict(config,fov,height,width,camera_z,has_rod_diverge
 
 
 
+# TODO
+https://github.com/mitsuba-renderer/mitsuba-tutorials/blob/09d49632bde18c5a414f870e356f1c7545e670b5/how_to_guides/image_io_and_manipulation.ipynb
+denoiser = mi.OptixDenoiser(input_size=noisy.shape[:2], albedo=False, normals=False, temporal=False)
+denoised = denoiser(noisy)
+
 bitmap = render_scene(scene_dict)
 plt.imshow(bitmap)
 ```
@@ -320,6 +287,7 @@ assert False
 ```
 
 ```python
+import imageio
 import pandas as pd
 import imageio
 import cv2
@@ -360,6 +328,7 @@ def get_frames(
             frame_height,
             frame_width,
             camera_z,
+            z_displacement,
             has_rod_divergence=has_rod_divergence)
         
         scene = mi.load_dict(scene_dict)
@@ -420,9 +389,12 @@ def create_video(
     writer = cv2.VideoWriter(str(vid_path), fourcc, fps, (frame_width,frame_height))
     for i,frame in frames:
         #f = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-        print(datetime.now(), 'processed', f"{i/frame_number}")
-        f = (frame *255).astype(np.uint8) 
+        #print(datetime.now(), 'processed', f"{i/frame_number}")
+        f = np.uint8(frame *255)
         writer.write(f)
+        
+        if i % 50 ==0:
+            imageio.imwrite(vid_path.parent/f"frame_{i:04}.png", f)
         
     sips_df = _get_sips(frame_number, top_down)
     sips_df.to_csv(vid_dir/"sips.csv", index=False,header=True)
@@ -449,7 +421,7 @@ for i in range(6):
     video_dir.mkdir(parents=True,exist_ok=True)
     
     fps = 25
-    frames_count = 1000
+    frames_count = 4000
     create_video(
         video_dir,
         frames_count, 
@@ -458,7 +430,6 @@ for i in range(6):
         fps=fps,
         #has_rod_divergence=True,
         seed = i)
-
 
 print('done')
 ```

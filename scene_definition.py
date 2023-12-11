@@ -211,7 +211,14 @@ def get_rod(rod_center, radius, rod_height = 1):
     }
 
 
-def generate_rods_group(config, max_twist_bow_mm = 50, max_divergence_mm = 5, bsdf=None, rod_count = 11):    
+def generate_rods_group(
+    config, 
+    max_twist_bow_mm = 50, 
+    max_divergence_mm = 5, 
+    bsdf=None, 
+    z_displacement = None,
+    rod_count = 11
+):    
     
     spacing= config['grid_detection']["mods"][-1]['spacing_mm']
     grid_heights_mm= config['grid_detection']["mods"][-1]['grid_heights_mm']
@@ -226,7 +233,17 @@ def generate_rods_group(config, max_twist_bow_mm = 50, max_divergence_mm = 5, bs
     rod_centers = rods_hexagon.generate_rod_centers(rod_count,rod_width_mm, gap_between_rods_width_mm)
     
     if max_twist_bow_mm != 0 or max_twist_bow_mm != 0:
-        return bent_rod.get_twisted_nfa_mesh(config,rod_centers,spacing,grid_heights_mm,max_divergence_mm, bsdf_resolved, max_twist_bow_mm=max_twist_bow_mm,return_curve=True)
+        return bent_rod.get_twisted_nfa_mesh(
+            config,
+            rod_centers,
+            spacing,
+            grid_heights_mm,
+            max_divergence_mm, 
+            bsdf_resolved, 
+            max_twist_bow_mm=max_twist_bow_mm,
+            return_curve=True,
+            z_displacement = z_displacement
+        )
     else:
         cylinder_radius = config['measurements']['rod_width_mm']/2
         rods = [ get_rod((*rc,0),cylinder_radius,rod_height) for rc in rod_centers]

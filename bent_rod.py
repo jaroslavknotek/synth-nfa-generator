@@ -59,6 +59,7 @@ def get_twisted_nfa_mesh(
     rod_bow_segments = 20, 
     rod_circle_segments = 32,
     seed = 678,
+    n_textures = None,
     return_curve = False,
     z_displacement = None
 ):
@@ -85,8 +86,20 @@ def get_twisted_nfa_mesh(
     
     rod_faces =  [r[1] for r in rod_vertices_faces]
     
-    v,f = bake_rod_geometry(rod_vertices,rod_faces)    
-    mesh = get_rod_mesh(v,f)
+    # TODO add texture to just some rods
+    # increase only x - expects the texture concat in x
+    uv_list = [r[2] for r in rod_vertices_faces]
+    
+    #uvs =np.concatenate(uv_list,axis=0)
+    n_textures = 20
+    
+    uvs =np.concatenate([ (uv + [i%n_textures,0]) for i,uv in enumerate(uv_list)],axis=0)
+    uvs[:,0] = uvs[:,0]/n_textures
+    
+    v,f = bake_rod_geometry(rod_vertices,rod_faces)
+    
+    mesh = get_rod_mesh(v,f,uvs)
+    
     
     os.makedirs("tmp",exist_ok=True)
     mesh_path = "tmp/test_rod.ply"
@@ -104,16 +117,13 @@ def get_twisted_nfa_mesh(
     else: 
         return res
 
-    
-    
-
-
 def bake_rod_geometry(vertices_list,faces_list):
     
     vertices = np.concatenate(vertices_list,axis=0)   
     offsets = np.cumsum(np.concatenate([[0],[len(v) for v in vertices_list]]))             
     
     faces = np.concatenate([ np.add(f,offset) for f,offset in zip(faces_list,offsets)])
+   
     return vertices, faces
 
 
@@ -251,11 +261,25 @@ def get_nfa_curves(spacing_mm, rod_centers,grid_heights_mm,rod_divergence_mm,max
     return nfa_bow_curve, get_rod_deflections_piecewise_bezier(nfa_bow_curve, rod_centers,grid_heights_mm, spacing_mm,rod_divergence_mm,bent_random)
 
 def get_curved_rod(nfa_curve,curve, rod_segments, cylinder_faces, radius = 1):
+    return get_rod_geometry(rod_segments, cylinder_faces, radius = radius, nfa_curve = nfa_curve,curve = curve)
+
+def get_rod_geometry(rod_segments, cylinder_faces, radius = 1,nfa_curve = None,curve = None,height = None):
     actual_segments = rod_segments +1
     curve_eval_points = np.linspace(0,1,actual_segments)
     
-    c_x,c_y,c_z = curve.evaluate_multi(curve_eval_points)
-    n_x,n_y,n_z = nfa_curve.evaluate_multi(curve_eval_points)
+    if curve is None:
+        c_x = np.zeros((actual_segments,))
+        c_y = np.copy(c_x)
+        c_z = curve_eval_points*(height or 1)
+    else:
+        c_x,c_y,c_z = curve.evaluate_multi(curve_eval_points)
+        
+    if nfa_curve is None:
+        n_x = np.zeros((actual_segments,))
+        n_y = np.copy(c_x)
+        n_z = curve_eval_points*(height or 1)
+    else:
+        n_x,n_y,n_z = nfa_curve.evaluate_multi(curve_eval_points)
     
     x = n_x + c_x
     y = n_y + c_y
@@ -290,43 +314,49 @@ def get_curved_rod(nfa_curve,curve, rod_segments, cylinder_faces, radius = 1):
             # face_indices.append([a,c,b])
             # face_indices.append([c,d,b])
         
-    return np.array(vertex_pos), np.array(face_indices,dtype=np.int32)
+    # Texture coors
+    y_coors = (np.linspace(0,1,actual_segments))
+    uv_y = np.multiply(np.expand_dims(y_coors,axis=1),np.ones(cylinder_faces)[None]).flatten()
+    uv_x = np.concatenate([np.linspace(0,1,cylinder_faces)]*(actual_segments))
+    uv = np.vstack([uv_x,uv_y]).T    
+    return np.array(vertex_pos), np.array(face_indices,dtype=np.int32), uv
 
 
-def get_rod_geometry(rod_segments,cylinder_faces, radius = 1):
-    actual_segments = rod_segments +1
-    spacing = np.linspace(0,2*np.pi,cylinder_faces)
-    x = np.sin(spacing) *radius
-    y = np.cos(spacing) *radius
-    z = np.linspace(0,1,actual_segments)
-    vertex_pos =np.concatenate([[x,y,np.ones((len(y),))*zz] for zz in z],axis = 1).T
-    face_indices = []
-    for i in range(actual_segments-1):
-        for j in range(cylinder_faces-1):
-            # a -- b
-            # | -- |
-            # c -- d
-            idxs = np.array([(i,j),(i,j+1),(i+1,j),(i+1,j+1)]).T
-            a,b,c,d= np.ravel_multi_index(idxs,(actual_segments,cylinder_faces))
+# def get_rod_geometry(rod_segments,cylinder_faces, radius = 1):
+#     actual_segments = rod_segments +1
+#     spacing = np.linspace(0,2*np.pi,cylinder_faces)
+#     x = np.sin(spacing) *radius
+#     y = np.cos(spacing) *radius
+#     z = np.linspace(0,1,actual_segments)
+#     vertex_pos =np.concatenate([[x,y,np.ones((len(y),))*zz] for zz in z],axis = 1).T
+#     face_indices = []
+#     for i in range(actual_segments-1):
+#         for j in range(cylinder_faces-1):
+#             # a -- b
+#             # | -- |
+#             # c -- d
+#             idxs = np.array([(i,j),(i,j+1),(i+1,j),(i+1,j+1)]).T
+#             a,b,c,d= np.ravel_multi_index(idxs,(actual_segments,cylinder_faces))
 
-            # face_indices.append([a,b,c])
-            # face_indices.append([c,b,d])
-            face_indices.append([d,b,a])
-            face_indices.append([d,a,c])
+#             # face_indices.append([a,b,c])
+#             # face_indices.append([c,b,d])
+#             face_indices.append([d,b,a])
+#             face_indices.append([d,a,c])
         
-    return vertex_pos, face_indices
+#     return vertex_pos, face_indices
 
-def get_rod_mesh(vertex_pos, face_indices):
+def get_rod_mesh(vertex_pos, face_indices,uv):
     mesh = mi.Mesh(
         "nfa_rods_twisted",
         vertex_count=len(vertex_pos),
         face_count=len(face_indices),
         has_vertex_normals=False,
-        has_vertex_texcoords=False,
+        has_vertex_texcoords=True,
     )
 
     mesh_params = mi.traverse(mesh)
     mesh_params["vertex_positions"] = np.ravel(vertex_pos)
     mesh_params["faces"] = np.ravel(face_indices)
+    mesh_params['vertex_texcoords'] = np.ravel(uv)
     
     return mesh

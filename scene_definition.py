@@ -145,7 +145,21 @@ def get_rods_bsdf(gray_intensity,bsdf_blend_factor,material_alpha_u,material_alp
     k_spectrum = list(zip(spectral_params[:,0],spectral_params[:,2]))
     
     bsdf = get_gray_diffuse(gray_intensity)
-    return {
+    zircon_conductor = {
+        "type" : "roughconductor",
+        "eta": {
+            "type":"spectrum",
+            "value":eta_spectrum,
+        },
+        "k":{
+            "type":"spectrum",
+            "value":k_spectrum,
+        },
+        #"distribution":"ggx",            
+        "alpha_u":material_alpha_u,
+        "alpha_v":material_alpha_v,
+    }
+    blend = {
         "type": "blendbsdf",
         "id":"rods_material",
         "weight":{
@@ -153,29 +167,32 @@ def get_rods_bsdf(gray_intensity,bsdf_blend_factor,material_alpha_u,material_alp
             "value":bsdf_blend_factor,
         },
         "bsdf":bsdf,
-        "metal": {
-        "type" : "roughconductor",
-            "eta": {
-                "type":"spectrum",
-                "value":eta_spectrum,
-            },
-            "k":{
-                "type":"spectrum",
-                "value":k_spectrum,
-            },
-            #"distribution":"ggx",            
-            "alpha_u":material_alpha_u,
-            "alpha_v":material_alpha_v,
-        }
+        "metal": zircon_conductor
     }
+    return zircon_conductor
 
 def get_ring_light(x,y,z, cam_light_intensity):
+    # return {
+    #     "type":"point",
+    #     "intensity":{
+    #         "type":"rgb",
+    #         "value":cam_light_intensity,},
+    #     "position":[x,y,z]
+    # }
+    light_height = 200
     return {
-        "type":"point",
-        "intensity":{
-            "type":"rgb",
-            "value":cam_light_intensity,},
-        "position":[x,y,z]
+        'type': 'cylinder',
+        'radius':4,
+        'p0':[x,y,z+light_height//2],
+        'p1':[x,y,z-light_height//2],
+        #'to_world':mi.ScalarTransform4f.translate([x,y,z]).scale([.05,.05,100]),
+        'emitter': {
+            'type': 'area',
+            'radiance': {
+                'type': 'rgb',
+                'value': cam_light_intensity/1,
+            }
+        }
     }
 
 def get_ring_camera(width,height,x,y,z,fov,spp=4):
@@ -189,16 +206,16 @@ def get_ring_camera(width,height,x,y,z,fov,spp=4):
         "to_world" :mi.ScalarTransform4f.translate([x,y,z]).rotate([1,0,0],90),
         "myfilm" : {
             "type" : "hdrfilm",
-            "rfilter" : { "type" : "tent"},
+            "rfilter" : { "type" : "box"},
             "width" : width,
             "height" : height,
             "pixel_format": "rgb",
             "component_format":"float32"
         },
-        "mysampler" : {
-            "type" : "independent",
-            "sample_count" : spp,
-        },
+        # "mysampler" : {
+        #     "type" : "independent",
+        #     "sample_count" : spp,
+        # },
     }
 
 def get_rod(rod_center, radius, rod_height = 1):
@@ -251,6 +268,7 @@ def generate_rods_group(
         rod_objs = []
         for i, rod in enumerate(rods[:]):
             rod['my_bsdf'] = bsdf_resolved
+            
             rod_objs.append(rod)
 
         return rod_objs

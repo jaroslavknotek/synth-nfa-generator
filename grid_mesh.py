@@ -19,18 +19,20 @@ def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
     v_2 = face.v2
     v_3 = face.v3
     
-    
-
     p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = mirror_down(p_x,p_y,p_z,v_1,v_2,v_3, n_x,n_y,n_z)
 
     p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = array_left(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,n=rod_count-2)
 
+    
     grid_info = p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
-
+    
+    # TODO remove constants
     distance = -grid_dist_from_center(11,9.1,3.65)  #mm
-    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = array_hexagon(distance,p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z)
-
-
+    
+    # UV mapping
+    u = 1-_norm(p_x) # It was arraye'd left so uv mapping is reversed
+    v = _norm(p_z)
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v = array_hexagon(distance,p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v)
     px,py,pz,*_=grid_info
 
     min_px_idc = np.squeeze(np.argwhere(px==np.min(px)))
@@ -45,7 +47,7 @@ def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
     right_indices = (max_px_idc[None] + np.arange(6)[:,None]*len(px))
     right_indices = np.roll(right_indices,-1,axis=0)
 
-    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,left_indices,right_indices)
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v = fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v,left_indices,right_indices)
     
     vertex_pos = mi.Point3f(
         np.float32(p_x),
@@ -64,6 +66,8 @@ def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
         np.float32(v_3)
     ])
     
+    uv = np.vstack([u,v]).T
+    
     mesh = mi.Mesh(
         "grid_teeth",
         vertex_count=len(vertex_pos[0]),
@@ -71,16 +75,18 @@ def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
         has_vertex_normals=False,
         has_vertex_texcoords=False,
     )
-
+    
     mesh_params = mi.traverse(mesh)
     mesh_params["vertex_positions"] = dr.ravel(vertex_pos)
     mesh_params["faces"] = dr.ravel(face_indices)
     mesh_params["vertex_normals"] = dr.ravel(vertex_norm)
+    mesh_params['vertex_texcoords'] = np.ravel(uv)
     
     return mesh
 
-def fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,left_indices,right_indices):
+def fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v,left_indices,right_indices):
     # add faces
+    
     stich_v1=[]
     stich_v2=[]
     stich_v3=[]
@@ -111,7 +117,7 @@ def fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,left_indices,right_indices)
         n_y[l] = (n_y[l] + n_y[r])/2
         n_y[r] = n_y[l]
         
-    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v
 
 
 def mirror_down(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z):
@@ -174,14 +180,14 @@ def rotate_2d(deg, points):
     rot = np.array([[c,s],[-s,c]])
     return np.dot(rot,points)   
 
-def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z):
+def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v):
     
     deg = 60
     n_points = len(p_x)
     p_x = p_x - np.mean(p_x)
     p_y = p_y - np.mean(p_y) + dist
     p_z = p_z - np.mean(p_z)
-    
+     
     for i in range(1,6):
         r_p_x,r_p_y = rotate_2d(
             deg*i,
@@ -199,14 +205,36 @@ def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z):
         n_x = np.concatenate([n_x,r_n_x])
         n_y = np.concatenate([n_y,r_n_y])
         n_z = np.concatenate([n_z,n_z[:n_points]])
-        
+                
     p_z = np.concatenate([p_z]*6)
         
     v_1 = np.concatenate([v_1 + n_points*i for i in range(0,6)])
     v_2 = np.concatenate([v_2 + n_points*i for i in range(0,6)])
     v_3 = np.concatenate([v_3 + n_points*i for i in range(0,6)])
-        
-    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
+    
+    
+    # UV recalc
+    v = np.tile(v,6)
+    # Need to add a bit of padding to right to make space for filling 
+    
+    # remember a position of top left point from 1st grid
+    one_grid_n = len(p_x)//6
+    min_px_single_idx = np.argmin(p_x[:one_grid_n])
+    max_px_single_idx = np.argmax(p_x[:one_grid_n])
+  
+    p_1 = np.array( [p_x[min_px_single_idx],p_y[min_px_single_idx]])
+    p_2 =[p_x[min_px_single_idx+one_grid_n],p_y[min_px_single_idx+one_grid_n]]
+    p_m = [p_x[max_px_single_idx],p_y[max_px_single_idx]]
+
+    offset = np.linalg.norm(p_1-p_m)
+    distance_moved = np.linalg.norm(p_1-p_2)
+    
+    padding_factor = offset/distance_moved
+    u = np.concatenate([ (u/6 * padding_factor) + (1/6*i) for i in range(6)])
+                
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v
+
+
 
 def grid_dist_from_center(
     visible_rod_count, 
@@ -218,3 +246,8 @@ def grid_dist_from_center(
     
     return np.sqrt(total_mm**2-(total_mm/2)**2) + 3
 
+
+def _norm(arr):
+    mi = np.min(arr)
+    ma = np.max(arr)
+    return (arr - mi)/(ma-mi)

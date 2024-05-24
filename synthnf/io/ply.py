@@ -1,3 +1,5 @@
+# Source: https://github.com/daavoo/pyntcloud/blob/master/pyntcloud/io/ply.py
+
 import sys
 import numpy as np
 import pandas as pd

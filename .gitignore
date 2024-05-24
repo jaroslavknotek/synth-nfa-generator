@@ -135,3 +135,5 @@ tmp/*
 output/
 
 *.blend1
+obsolete/
+*.egg-info

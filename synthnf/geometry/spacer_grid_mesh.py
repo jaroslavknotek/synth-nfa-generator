@@ -3,21 +3,67 @@ import mitsuba as mi
 import numpy as np
 
 
-def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
-    points = tooth_mesh_data['points']
-    face = tooth_mesh_data['mesh']
-
+def decompose_mesh(mesh):
+    points = mesh['points']
+    face = mesh['mesh']
+    
     p_x = points.x
     p_y = points.y
     p_z = points.z
-
+    
+    v_1 = face.v1
+    v_2 = face.v2
+    v_3 = face.v3
+    
     n_x = points.nx
     n_y = points.ny
     n_z = points.nz
 
-    v_1 = face.v1
-    v_2 = face.v2
-    v_3 = face.v3
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
+
+def compose_mesh(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u=None,v=None,mesh_name = None):
+    
+    vertex_pos = mi.Point3f(
+        np.float32(p_x),
+        np.float32(p_y),
+        np.float32(p_z)
+    )
+    vertex_norm = mi.Vector3f(
+        np.float32(n_x),
+        np.float32(n_y),
+        np.float32(n_z)
+    )
+
+    face_indices = mi.Vector3u([
+        np.float32(v_1),
+        np.float32(v_2),
+        np.float32(v_3)
+    ])
+    
+    has_vertex_texcoords = u is not None and v is not None
+    
+    mesh = mi.Mesh(
+        mesh_name or "grid_teeth",
+        vertex_count=len(vertex_pos[0]),
+        face_count=len(face_indices[0]),
+        has_vertex_normals=True,
+        has_vertex_texcoords=False,
+    )
+    
+    mesh_params = mi.traverse(mesh)
+    mesh_params["vertex_positions"] = dr.ravel(vertex_pos)
+    mesh_params["faces"] = dr.ravel(face_indices)
+    mesh_params["vertex_normals"] = dr.ravel(vertex_norm)
+    
+    if has_vertex_texcoords:
+        uv = np.vstack([u,v]).T
+        mesh_params['vertex_texcoords'] = np.ravel(uv)
+    
+    return mesh
+    
+def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count,rod_width_mm,rod_gap_width_mm):    
+    
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = decompose_mesh(tooth_mesh_data)
     
     p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = mirror_down(p_x,p_y,p_z,v_1,v_2,v_3, n_x,n_y,n_z)
 
@@ -26,8 +72,7 @@ def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
     
     grid_info = p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
     
-    # TODO remove constants
-    distance = -grid_dist_from_center(11,9.1,3.65)  #mm
+    distance = -grid_dist_from_center(rod_count,rod_width_mm,rod_gap_width_mm)
     
     # UV mapping
     u = 1-_norm(p_x) # It was arraye'd left so uv mapping is reversed
@@ -49,40 +94,7 @@ def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count):
 
     p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v = fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v,left_indices,right_indices)
     
-    vertex_pos = mi.Point3f(
-        np.float32(p_x),
-        np.float32(p_y),
-        np.float32(p_z)
-    )
-    vertex_norm = mi.Vector3f(
-        np.float32(n_x),
-        np.float32(n_y),
-        np.float32(n_z)
-    )
-
-    face_indices = mi.Vector3u([
-        np.float32(v_1),
-        np.float32(v_2),
-        np.float32(v_3)
-    ])
-    
-    uv = np.vstack([u,v]).T
-    
-    mesh = mi.Mesh(
-        "grid_teeth",
-        vertex_count=len(vertex_pos[0]),
-        face_count=len(face_indices[0]),
-        has_vertex_normals=False,
-        has_vertex_texcoords=False,
-    )
-    
-    mesh_params = mi.traverse(mesh)
-    mesh_params["vertex_positions"] = dr.ravel(vertex_pos)
-    mesh_params["faces"] = dr.ravel(face_indices)
-    mesh_params["vertex_normals"] = dr.ravel(vertex_norm)
-    mesh_params['vertex_texcoords'] = np.ravel(uv)
-    
-    return mesh
+    return compose_mesh(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v)
 
 def fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v,left_indices,right_indices):
     # add faces
@@ -121,9 +133,6 @@ def fill_borders(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v,left_indices,right_indi
 
 
 def mirror_down(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z):
-    
-    #return p_x,p_y,p_z,v_1,v_2,v_3
-    #return p_x,p_y,-p_z,v_1,v_3,v_2
     n_points = len(p_x)
     p_x = np.concatenate([p_x,p_x])
     p_y = np.concatenate([p_y,p_y])
@@ -233,7 +242,6 @@ def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v):
     u = np.concatenate([ (u/6 * padding_factor) + (1/6*i) for i in range(6)])
                 
     return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v
-
 
 
 def grid_dist_from_center(

@@ -1,69 +1,11 @@
-import drjit as dr
 import mitsuba as mi
 import numpy as np
-
-
-def decompose_mesh(mesh):
-    points = mesh['points']
-    face = mesh['mesh']
-    
-    p_x = points.x
-    p_y = points.y
-    p_z = points.z
-    
-    v_1 = face.v1
-    v_2 = face.v2
-    v_3 = face.v3
-    
-    n_x = points.nx
-    n_y = points.ny
-    n_z = points.nz
-
-    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z
-
-def compose_mesh(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u=None,v=None,mesh_name = None):
-    
-    vertex_pos = mi.Point3f(
-        np.float32(p_x),
-        np.float32(p_y),
-        np.float32(p_z)
-    )
-    vertex_norm = mi.Vector3f(
-        np.float32(n_x),
-        np.float32(n_y),
-        np.float32(n_z)
-    )
-
-    face_indices = mi.Vector3u([
-        np.float32(v_1),
-        np.float32(v_2),
-        np.float32(v_3)
-    ])
-    
-    has_vertex_texcoords = u is not None and v is not None
-    
-    mesh = mi.Mesh(
-        mesh_name or "grid_teeth",
-        vertex_count=len(vertex_pos[0]),
-        face_count=len(face_indices[0]),
-        has_vertex_normals=True,
-        has_vertex_texcoords=False,
-    )
-    
-    mesh_params = mi.traverse(mesh)
-    mesh_params["vertex_positions"] = dr.ravel(vertex_pos)
-    mesh_params["faces"] = dr.ravel(face_indices)
-    mesh_params["vertex_normals"] = dr.ravel(vertex_norm)
-    
-    if has_vertex_texcoords:
-        uv = np.vstack([u,v]).T
-        mesh_params['vertex_texcoords'] = np.ravel(uv)
-    
-    return mesh
+import synthnf.io as io
+from synthnf.geometry import compose_mesh
     
 def create_grid_mesh_from_tooth(tooth_mesh_data,rod_count,rod_width_mm,rod_gap_width_mm):    
     
-    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = decompose_mesh(tooth_mesh_data)
+    p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = io.decompose_ply(tooth_mesh_data)
     
     p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = mirror_down(p_x,p_y,p_z,v_1,v_2,v_3, n_x,n_y,n_z)
 

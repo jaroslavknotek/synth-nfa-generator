@@ -52,7 +52,10 @@ def create_lookat_sensor(
             'type': 'hdrfilm',
             'pixel_format': 'rgba',
             'width': resolution_width,
-            'height': resolution_height
+            'height': resolution_height,
+            'rfilter':{
+                "type":"box"
+            }
         }
     }
 

@@ -1,7 +1,32 @@
 import numpy as np
-import bezier
 
 import synthnf.geometry.fuel_rods_mesh as frm
+import synthnf.geometry.curves as curves
+
+def create_nfa_curves(
+    bow_xy_mm,
+    rods_divergences_xy_mm,
+    span_margin_mm,
+    spans
+):      
+    fa_height_mm = spans[-1]
+    bow_x,bow_y = bow_xy_mm
+    # LIMITED to a single bent
+    bezier_nodes = np.array([
+        [0,0,0], #bottom
+        [bow_x,bow_y,fa_height_mm*1/3],
+        [0,0,fa_height_mm*2/3],[0,0,fa_height_mm*3/4],  # until 1 third there is nothing happening
+        [0,0,fa_height_mm] #top
+    ])
+    curve_fa = curves.bezier_from_nodes(bezier_nodes)
+    
+    curves_rod = []
+    for rod_div_xy in rods_divergences_xy_mm:
+        piecewise_curve = curves.construct_piecewise_curve(spans,rod_div_xy,span_margin_mm)
+        curves_rod.append(curves.merge_curves(curve_fa,piecewise_curve))
+       
+    return curve_fa, curves_rod
+
 
 def rnd_divergence_adjusted(pieces,max_divergence,rnd = None):    
     if rnd is None:
@@ -12,42 +37,7 @@ def rnd_divergence_adjusted(pieces,max_divergence,rnd = None):
     # ensure divergence are smaller for smaller spans
     divergence_factor =heights/max_div
     
-    divergences = (rnd.rand(len(heights),2)*2-1) * divergence_factor[None].T
+    divergences = (rnd.rand(len(heights),2)*2-1) * max_divergence * divergence_factor[None].T
     return np.nan_to_num(divergences)
     
-def construct_piecewise_curve(pieces,divergences, piece_margin_mm):
-    beziers = []
-
-    for piece_start_mm,piece_end_mm,(div_x_mm,div_y_mm) in zip(pieces,pieces[1:],divergences):
-
-        bezier_start_z = piece_start_mm + piece_margin_mm
-        bezier_end_z = piece_end_mm - piece_margin_mm
-
-        if bezier_start_z <= bezier_end_z:    
-            middle_z = (bezier_start_z + bezier_end_z)/2
-
-            bezier_middle_start = [0,0, bezier_start_z ]
-            bezier_middle_middle = [div_x_mm, div_y_mm, middle_z]
-            bezier_middle_end = [0,0, bezier_end_z]
-
-        bezier_start = [0,0,bezier_start_z]
-        bezier_end = [0,0,bezier_end_z]
-
-        nodes_list = [
-            bezier_start,
-            bezier_middle_start,
-            bezier_middle_middle,
-            bezier_middle_end,
-            bezier_end
-        ]
-        nodes = np.stack(nodes_list)
-
-        bezier_piece = bezier_from_nodes(nodes)
-        bezier_record = (piece_start_mm,piece_end_mm,bezier_piece)
-        beziers.append(bezier_record)
-
-    return frm.PiecewiseCurve(beziers)
-
-def bezier_from_nodes(nodes):
-    return bezier.Curve.from_nodes(nodes.T)
     

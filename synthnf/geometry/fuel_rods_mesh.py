@@ -1,66 +1,61 @@
 import numpy as np
 import mitsuba as mi
+import synthnf.geometry.curves as curves
+import synthnf.config.defaults as defaults
 
-class PiecewiseCurve():
-    def __init__(self, curve_records):
-        self.nfa_height=curve_records[-1][1]
-        self.curve_records = curve_records
+
+def create_fa_mesh(
+    rod_curves, 
+    rod_centers, 
+    rod_width_mm,
+    rod_height_mm, 
+    z_displacement = None, 
+    num_textures = None
+):
     
-    def evaluate_multi(self,zs):
-        found_xyz = []
-        for z in zs:
-            last_end = None
-            last_end_point = None
-            z = z*self.nfa_height
-            
-            for i,(start,end,curve) in enumerate(self.curve_records):
-                if z < start:
-                    start_point = curve.evaluate_multi(np.array([0.0])).T[0]
-                    alpha = (last_end - z)/(start - z)
-                    
-                    x,y,_ =  last_end_point*alpha + start_point*(1-alpha)
-                    found_xyz.append([x,y,z])
-                    break
-                elif z > end:
-                    last_end_point = curve.evaluate_multi(np.array([1.0])).T[0]
-                    last_end = end
-                    continue
-                else:
-                    redone_point = (z - start)/(end-start)                    
-                    x,y,_ = curve.evaluate_multi(np.array([redone_point])).T[0]
-                    found_xyz.append([x,y,z])
-                    break 
-        
-        return np.stack(found_xyz).T
+    if z_displacement is None:
+        z_displacement = 0
+    else:
+        z_displacement = np.array(z_displacement)
+        if len(z_displacement.shape) == 1:
+            z_displacement = np.expand_dims(z_displacement,axis=1)
     
-    def evaluate(self,z):
-        return self.evaluate_multi([z])
-
-class CurveAdded():
-    def __init__(self, curve_a,curve_b):
-        self.curve_a = curve_a
-        self.curve_b = curve_b
-
-    def evaluate_multi(self,zs):
-        
-        a = self.curve_a.evaluate_multi(zs)
-        b = self.curve_b.evaluate_multi(zs)
-                
-        res = a+b
-        # z should remain the same)
-        res[2] = b[2]
-        return res
-        
-    def evaluate(self,z):
-        return self.evaluate_multi([z])
+    if num_textures is None:
+        num_textures = len(rod_curves)
     
-def merge_curves(curve_a,curve_b):
-    return CurveAdded(curve_a,curve_b)
+    rod_vertices_faces = [
+        get_rod_geometry(
+            100,
+            32,
+            rod_width_mm/2,
+            curve,
+            height = rod_height_mm
+        ) 
+        for curve in rod_curves
+    ]
+    
+    fa_vertices =  np.array([r[0] for r in rod_vertices_faces])
+    
+    # shift in z-axis
+    fa_vertices[:,:,2] += z_displacement
+    # move rod vertices according to rod centers
+    fa_vertices[:,:,:2]+= np.expand_dims(rod_centers,1)
 
+    
+    fa_faces =  [r[1] for r in rod_vertices_faces]
+    v,f = bake_rod_geometry(fa_vertices,fa_faces)
+    
+    # process textures 
+    fa_uvs = [r[2] for r in rod_vertices_faces]
+    
+    uvs =np.concatenate([ (uv + [i%num_textures,0]) for i,uv in enumerate(fa_uvs)],axis=0)
+    uvs[:,0] = uvs[:,0]/num_textures
+    
+    return get_mesh(v,f,uvs)
 
-def get_rod_mesh(vertex_pos, face_indices,uv,mesh_name = None):
+def get_mesh(vertex_pos, face_indices,uv,mesh_name = None):
     mesh = mi.Mesh(
-        mesh_name or "nfa_rods_twisted",
+        mesh_name or "mesh",
         vertex_count=len(vertex_pos),
         face_count=len(face_indices),
         has_vertex_normals=False,
@@ -74,7 +69,13 @@ def get_rod_mesh(vertex_pos, face_indices,uv,mesh_name = None):
     
     return mesh
 
-def get_rod_geometry(rod_segments, cylinder_faces, radius = 1,curve = None,height = None):
+def get_rod_geometry(
+    rod_segments, 
+    cylinder_faces, 
+    radius = 1,
+    curve = None,
+    height = None
+):
     actual_segments = rod_segments +1
     curve_eval_points = np.linspace(0,1,actual_segments)
     
@@ -130,128 +131,71 @@ def get_rod_geometry(rod_segments, cylinder_faces, radius = 1,curve = None,heigh
     return vertices,faces , uv
 
 
-def add_row(start_x,start_y, n,rod_center_distance_mm):
-    pts_x = np.arange(n) * rod_center_distance_mm + start_x
-    pts_y = np.ones((n,)) * start_y
-    return np.stack([pts_x,pts_y]).T
-
-
-def generate_rod_centers(side_rod_count, rod_width_mm,gap_between_rods_width_mm):
-    rod_center_distance_mm = rod_width_mm + gap_between_rods_width_mm
+def generate_rod_centers_hexagon(
+    rods_per_face = None, 
+    rod_width_mm = None,
+    rod_gap_mm = None,
+    outern_layers = None
+):
+    rod_width_mm = defaults.blueprints.fuel_rod.width_mm
+    rod_gap_mm = defaults.blueprints.fuel_rod.gap_mm
+    rods_per_face = defaults.blueprints.fa.rods_per_face
+    
+    from_layer = -1
+    if outern_layers:
+        from_layer = rods_per_face - outern_layers
+        
+    rod_center_distance_mm = rod_width_mm + rod_gap_mm
 
     pythagorean_factor = np.sqrt(3)/2
-    rod_centers_lines_arrays = [add_row(0,0,side_rod_count*2 - 1,rod_center_distance_mm) ]
-    x_shift = rod_centers_lines_arrays[0][side_rod_count-1]
-        
-    for i,current_rod_count in zip(range(1,side_rod_count),range(side_rod_count+side_rod_count - 2,side_rod_count-1,-1)):
-
-        x = (i*rod_center_distance_mm)/2
-        y = i * pythagorean_factor* rod_center_distance_mm
-        points_b = add_row(x,-y,current_rod_count,rod_center_distance_mm)
-        points_t = add_row(x,y,current_rod_count,rod_center_distance_mm)
-
-        rod_centers_lines_arrays.append(points_b)
-        rod_centers_lines_arrays.append(points_t)
-    return np.concatenate(rod_centers_lines_arrays) - x_shift
-
-
-# def generate_rods_group(
-#     config, 
-#     max_twist_bow_mm = 50, 
-#     max_divergence_mm = 5, 
-#     bsdf=None, 
-#     z_displacement = None,
-#     rod_count = 11
-# ):    
+    rod_centers = np.zeros((0,2))
     
-#     spacing= config['grid_detection']["mods"][-1]['spacing_mm']
-#     grid_heights_mm= config['grid_detection']["mods"][-1]['grid_heights_mm']
-
-#     rod_height = np.sum(spacing)                    
-#     bsdf_resolved  = bsdf if bsdf is not None else _pink_bsdf    
-    
-#     rod_width_mm = config['measurements']['rod_width_mm']
-#     gap_between_rods_width_mm = config['measurements']['gap_between_rods_width_mm']
-    
-
-#     rod_centers = rods_hexagon.generate_rod_centers(rod_count,rod_width_mm, gap_between_rods_width_mm)
-    
-#     if max_twist_bow_mm != 0 or max_twist_bow_mm != 0:
-#         return bent_rod.get_twisted_nfa_mesh(
-#             config,
-#             rod_centers,
-#             spacing,
-#             grid_heights_mm,
-#             max_divergence_mm, 
-#             bsdf_resolved, 
-#             max_twist_bow_mm=max_twist_bow_mm,
-#             return_curve=True,
-#             z_displacement = z_displacement
-#         )
-#     else:
-#         cylinder_radius = config['measurements']['rod_width_mm']/2
-#         rods = [ get_rod((*rc,0),cylinder_radius,rod_height) for rc in rod_centers]
-
-#         rod_objs = []
-#         for i, rod in enumerate(rods[:]):
-#             rod['my_bsdf'] = bsdf_resolved
+    for layer in range(rods_per_face,from_layer,-1):
+        if layer == 0:
+            rod_centers = np.vstack([rod_centers,[[0,0]]])
+            break
             
-#             rod_objs.append(rod)
+        side_width = rod_center_distance_mm * layer
+        corners = [
+            [-side_width/2,side_width*pythagorean_factor], #11 oclock,
+            [side_width/2,side_width*pythagorean_factor], #1 oclock
+            [side_width,0], # 3 oclock
+            [side_width/2,-side_width*pythagorean_factor], #5 oclock
+            [-side_width/2,-side_width*pythagorean_factor], #7 oclock,
+            [-side_width,0], # 9 oclock
+        ]
 
-#         return rod_objs
+        rc = []
+        for c1,c2 in zip(corners,corners[1:]  +[corners[0]]):
+            c1_x,c1_y = c1
+            c2_x,c2_y = c2
+
+            xx = np.linspace(c1_x,c2_x,layer,endpoint=False)
+            yy = np.linspace(c1_y,c2_y,layer,endpoint=False)
+
+            rc.append(np.stack([xx,yy]).T)
+
+        rc = np.vstack(rc)
+        rod_centers = np.vstack([rod_centers,rc])
+    return rod_centers
+
+def generate_rod_centers(*args,**kwargs):
+    shape = 'hexagon'
+    if 'shape' in kwargs:
+        shape = kwargs['shape'] 
+        del kwargs['shape'] 
     
-# def get_tips(curves, config,tip_ply = 'assets/tip_model.ply'):
-#     rod_tops = np.array([c.evaluate(0) for c in curves])
-#     tips_scenes = {}
+    match shape:
+        case 'hexagon':
+            return generate_rod_centers_hexagon(*args,**kwargs)
+        case _:
+            raise Exception("Not supported shape")
+
+def bake_rod_geometry(vertices_list,faces_list):
     
-#     rods_material = config['fuel_material']['rods']
-#     rods_material_alpha_u = rods_material['material_alpha_u']
-#     rods_material_alpha_v = rods_material['material_alpha_v']
-#     rods_gray_intensity =rods_material['diffuse_gray_intensity']
-#     rods_bsdf_blend_factor = rods_material['zircon_to_bsdf_blend_factor']
-
-#     for i,(x,y,_) in enumerate(rod_tops):
-#         rods_bdsf = get_rods_bsdf(rods_gray_intensity, rods_bsdf_blend_factor, rods_material_alpha_u,rods_material_alpha_v)
-#         rods_bdsf['id'] = f'tip_material_{i}'
-#         offset = 9.1 + 3.65
-#         y_offset = np.sqrt(offset**2 - (offset/2)**2)
-#         y_shift =  offset - y_offset *12
-#         tips_scenes[f"tip_{i}"] = {        
-#             'type': 'ply',
-#             'filename': tip_ply,
-#             "to_world" :mi.ScalarTransform4f.translate([x,y+y_shift,0]),
-
-#             "material":rods_bdsf,
-#             # "material": {
-#             #     'type': 'diffuse',
-#             #     'reflectance': {
-#             #         'type': 'rgb',
-#             #         'value': [1, 0, 1]
-#             #     }
-#             # }
-#         }
-#     return tips_scenes
-
-# def add_row(start_x,start_y, n,rod_center_distance_mm):
-#     pts_x = np.arange(n) * rod_center_distance_mm + start_x
-#     pts_y = np.ones((n,)) * start_y
-#     return np.stack([pts_x,pts_y]).T
-
-
-# def generate_rod_centers(visible_rod_count, rod_width_mm,gap_between_rods_width_mm):
-#     rod_center_distance_mm = rod_width_mm + gap_between_rods_width_mm
-
-#     pythagorean_factor = np.sqrt(3)/2
-#     rod_centers_lines_arrays = [add_row(0,0,visible_rod_count*2 - 1,rod_center_distance_mm) ]
-#     x_shift = rod_centers_lines_arrays[0][visible_rod_count-1]
-        
-#     for i,current_rod_count in zip(range(1,visible_rod_count),range(visible_rod_count+visible_rod_count - 2,visible_rod_count-1,-1)):
-
-#         x = (i*rod_center_distance_mm)/2
-#         y = i * pythagorean_factor* rod_center_distance_mm
-#         points_b = add_row(x,-y,current_rod_count,rod_center_distance_mm)
-#         points_t = add_row(x,y,current_rod_count,rod_center_distance_mm)
-
-#         rod_centers_lines_arrays.append(points_b)
-#         rod_centers_lines_arrays.append(points_t)
-#     return np.concatenate(rod_centers_lines_arrays) - x_shift
+    vertices = np.concatenate(vertices_list,axis=0)   
+    offsets = np.cumsum(np.concatenate([[0],[len(v) for v in vertices_list]]))             
+    
+    faces = np.concatenate([ np.add(f,offset) for f,offset in zip(faces_list,offsets)])
+   
+    return vertices, faces

@@ -1,5 +1,5 @@
 # Source: https://github.com/daavoo/pyntcloud/blob/master/pyntcloud/io/ply.py
-
+import drjit as dr
 import sys
 import numpy as np
 import pandas as pd
@@ -261,3 +261,21 @@ def describe_element(name, df):
             element.append('property ' + f + ' ' + df.columns.values[i])
 
     return element
+
+def decompose_ply(mesh):
+    points = mesh['points']
+    face = mesh['mesh']
+    
+    p_x = points.x
+    p_y = points.y
+    p_z = points.z
+    
+    v_1 = face.v1
+    v_2 = face.v2
+    v_3 = face.v3
+    
+    n_x = points.nx
+    n_y = points.ny
+    n_z = points.nz
+
+    return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z

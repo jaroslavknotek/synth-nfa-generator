@@ -1,6 +1,8 @@
+import numpy as np
 import pandas as pd
 import synthnf.io as io
 import synthnf.config.assets as assets
+from synthnf.config.defaults import materials as defmat
 
 def create_gray_diffuse(intensity):
     return {
@@ -11,7 +13,56 @@ def create_gray_diffuse(intensity):
         }
     }
 
-def create_zirconium(alpha_u = .03,alpha_v = .05):
+def inconel_blend(
+    cloudiness = None, 
+    gray_diffuse = None,
+    blend_texture = None,
+    alpha_u = None,
+    alpha_v = None
+ ):
+    inconel = create_inconel(alpha_u,alpha_v)
+    
+    cloudiness = cloudiness or .5
+    if blend_texture is None:
+        blend_texture = np.ones((2,2)) * cloudiness
+        
+    gray_diffuse = gray_diffuse or 1
+    bsdf = create_gray_diffuse(gray_diffuse)
+
+    return blend_materials(
+        inconel,
+        bsdf,
+        blend_texture
+    )
+
+def zirconium_blend(
+    cloudiness = None, 
+    gray_diffuse = None,
+    blend_texture = None,
+    alpha_u = None,
+    alpha_v = None
+):
+    gray_diffuse = gray_diffuse or 1
+    cloudiness = cloudiness or .5
+    if blend_texture is None:
+        blend_texture = np.ones((2,2)) * cloudiness
+    
+    bsdf = create_gray_diffuse(gray_diffuse)
+    zircon_conductor = create_zirconium(
+        alpha_u = alpha_u,
+        alpha_v = alpha_v
+    )
+
+    return blend_materials(
+        zircon_conductor,
+        bsdf,
+        blend_texture
+    )
+
+def create_zirconium(alpha_u = None,alpha_v = None):
+    alpha_u = alpha_u or defmat.zirconium.alpha_u
+    alpha_v = alpha_v or defmat.zirconium.alpha_v
+    
     df_zirconium = pd.read_csv(assets.get_asset_path('spectrum_zirconium.csv'))
     wv = df_zirconium['wavelength'] * 1000
     n = df_zirconium['n']
@@ -25,7 +76,11 @@ def create_zirconium(alpha_u = .03,alpha_v = .05):
         alpha_v
     )
     
-def create_inconel(alpha_u = .02,alpha_v = .02):
+def create_inconel(alpha_u = None,alpha_v = None):
+    alpha_u = alpha_u or defmat.zirconium.alpha_u
+    alpha_v = alpha_v or defmat.zirconium.alpha_v
+    
+    
     df_zirconium = pd.read_csv(assets.get_asset_path('spectrum_inconel.csv'))
     wv = df_zirconium['wavelength'] * 1000
     n = df_zirconium['n']

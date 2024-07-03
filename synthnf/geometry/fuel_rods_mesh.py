@@ -8,7 +8,7 @@ def create_fa_mesh(
     rod_curves, 
     rod_centers, 
     rod_width_mm,
-    rod_height_mm, 
+    rod_height_mm = None, 
     z_displacement = None, 
     num_textures = None
 ):
@@ -76,13 +76,14 @@ def get_rod_geometry(
     curve = None,
     height = None
 ):
+    height = height or 1
     actual_segments = rod_segments +1
     curve_eval_points = np.linspace(0,1,actual_segments)
     
     if curve is None:
         c_x = np.zeros((actual_segments,))
         c_y = np.copy(c_x)
-        c_z = curve_eval_points*(height or 1)
+        c_z = curve_eval_points*(height)
     else:
         c_x,c_y,c_z = curve.evaluate_multi(curve_eval_points)
         
@@ -93,7 +94,7 @@ def get_rod_geometry(
     spacing = np.linspace(0,2*np.pi,cylinder_faces)
     x_circle = np.sin(spacing)* radius 
     y_circle = np.cos(spacing)* radius
-    z = -z
+    #z = -z
     
     cylinder_coor_shape = (actual_segments,len(x_circle))
     cylinder_x = np.broadcast_to(x_circle ,cylinder_coor_shape) + np.broadcast_to(x[:,np.newaxis], cylinder_coor_shape)
@@ -114,11 +115,11 @@ def get_rod_geometry(
             idxs = np.array([(i,j),(i,j+1),(i+1,j),(i+1,j+1)]).T
             a,b,c,d= np.ravel_multi_index(idxs,(actual_segments,cylinder_faces))
 
-            face_indices.append([a,b,c])
-            face_indices.append([c,b,d])
+            # face_indices.append([a,b,c])
+            # face_indices.append([c,b,d])
             # inward faces
-            # face_indices.append([a,c,b])
-            # face_indices.append([c,d,b])
+            face_indices.append([a,c,b])
+            face_indices.append([c,d,b])
         
     # Texture coors
     y_coors = (np.linspace(0,1,actual_segments))
@@ -137,20 +138,20 @@ def generate_rod_centers_hexagon(
     rod_gap_mm = None,
     outern_layers = None
 ):
-    rod_width_mm = defaults.blueprints.fuel_rod.width_mm
-    rod_gap_mm = defaults.blueprints.fuel_rod.gap_mm
+    rod_width_mm = rod_width_mm or defaults.blueprints.fuel_rod.width_mm
+    rod_gap_mm = rod_gap_mm or defaults.blueprints.fuel_rod.gap_mm
     rods_per_face = defaults.blueprints.fa.rods_per_face
     
     from_layer = -1
     if outern_layers:
-        from_layer = rods_per_face - outern_layers
+        from_layer = rods_per_face -1 - outern_layers
         
     rod_center_distance_mm = rod_width_mm + rod_gap_mm
 
     pythagorean_factor = np.sqrt(3)/2
     rod_centers = np.zeros((0,2))
     
-    for layer in range(rods_per_face,from_layer,-1):
+    for layer in range(rods_per_face-1,from_layer,-1):
         if layer == 0:
             rod_centers = np.vstack([rod_centers,[[0,0]]])
             break

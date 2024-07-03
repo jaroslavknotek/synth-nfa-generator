@@ -1,6 +1,7 @@
 import synthnf.config.defaults as defaults
 import mitsuba as mi
 
+
 def create_mount_emmiter(
     location,
     cam_light_intensity,
@@ -22,27 +23,27 @@ def create_mount_emmiter(
         }
     }
 
-def create_lookat_sensor(
+def cam_perspective_lookat(
     origin, 
     target = None,
     up=None,
-    type_= None,
-    resolution_width = None,
-    resolution_height=None
+    fov = None,
+    res_x = None,
+    res_y = None
 ):
     if target is None:
         target = [0,0,0]
     if up is None:
         up = [0,0,1]
-    if resolution_width is None:
-        resolution_width = 600
-    if resolution_height is None:
-        resolution_height = 800
-    if type_ is None:
-        type_ = 'perspective'
+    if res_x is None:
+        res_x = 600
+    if res_y is None:
+        res_y = 800
+    fov = fov or 28
     
     return {
-        "type": type_,
+        "type": 'perspective',
+        "fov":fov,
         "to_world": mi.ScalarTransform4f.look_at(
             origin=origin, 
             target=target, 
@@ -51,55 +52,40 @@ def create_lookat_sensor(
         "film":{
             'type': 'hdrfilm',
             'pixel_format': 'rgba',
-            'width': resolution_width,
-            'height': resolution_height,
+            'width': res_x,
+            'height': res_y,
             'rfilter':{
                 "type":"box"
             }
         }
     }
 
-def create_camera_ring(
-    ring_center,
-    ring_diameter_mm = None,
-    light_offset_mm = None,
-    light_height_mm = None,
-    cam_light_intensity = None
-):
-    bl = defaults.blueprints
-    sc = defaults.scene_params
-    if ring_diameter_mm is None:
-        ring_diameter_mm = bl.camera_ring.diameter_mm
-    if light_height_mm is None:
-        light_height_mm = bl.camera_ring.light_height_mm
-    if light_offset_mm is None:
-        light_offset_mm = bl.camera_ring.light_offset_mm
-    if light_radius_mm is None:
-        light_radius_mm = bl.camera_ring.light_radius_mm
-    if cam_light_intensity is None:
-        cam_light_intensity = sc.illumination.cam_light_intensity
-    
-    c_x,c_y,c_z = ring_center
-    sensor = create_lookat_sensor(
-        [c_x,c_y + ring_diameter_mm/2,c_z],
-        target=ring_center
-    )
-
-    ligth_left = create_mount_emmiter(
-        [c_x - light_offset_mm//2,c_y + ring_diameter_mm,c_z],
-        cam_ligth_intensity , 
-        light_height=light_height,
-        radius = light_radius_mm
-    )
-    ligth_left = create_mount_emmiter(
-        [c_x - light_offset_mm//2,c_y + ring_diameter_mm,c_z],
-        cam_ligth_intensity , 
-        light_height=light_height,
-        radius = light_radius_mm
-    )
+def cam_orto_lookat(origin,target = None,  res_x=None,res_y =None,orto_scale_xy =None,up=None):
+    if target is None:
+        target = [0,0,0]
+    if up is None:
+        up = [0,0,1]
+    if res_x is None:
+        res_x = 600
+    if res_y is None:
+        res_y = 800
+    if orto_scale_xy is None:
+        orto_scale_xy = [1,1]
         
     return {
-        "sensor":sensor,
-        "light_left":light_left,
-        "light_right":light_right
+        'type': 'orthographic',
+        "film":{
+            'type': 'hdrfilm',
+            'pixel_format': 'rgba',
+            'width': res_x,
+            'height': res_y,
+            'rfilter':{
+                "type":"box"
+            }
+        },
+        'to_world': mi.ScalarTransform4f.look_at(
+            origin=origin,
+            target=target,
+            up=up
+        ).scale([*orto_scale_xy,1])
     }

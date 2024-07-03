@@ -138,7 +138,10 @@ def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v):
     p_x = p_x - np.mean(p_x)
     p_y = p_y - np.mean(p_y) + dist
     p_z = p_z - np.mean(p_z)
-     
+    
+    min_p_x_arg = np.argmin(p_x)
+    max_p_x_arg = np.argmax(p_x)
+    
     for i in range(1,6):
         r_p_x,r_p_y = rotate_2d(
             deg*i,
@@ -169,19 +172,17 @@ def array_hexagon(dist, p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v):
     # Need to add a bit of padding to right to make space for filling 
     
     # remember a position of top left point from 1st grid
-    one_grid_n = len(p_x)//6
-    min_px_single_idx = np.argmin(p_x[:one_grid_n])
-    max_px_single_idx = np.argmax(p_x[:one_grid_n])
-  
-    p_1 = np.array( [p_x[min_px_single_idx],p_y[min_px_single_idx]])
-    p_2 =[p_x[min_px_single_idx+one_grid_n],p_y[min_px_single_idx+one_grid_n]]
-    p_m = [p_x[max_px_single_idx],p_y[max_px_single_idx]]
-
-    offset = np.linalg.norm(p_1-p_m)
-    distance_moved = np.linalg.norm(p_1-p_2)
     
-    padding_factor = offset/distance_moved
-    u = np.concatenate([ (u/6 * padding_factor) + (1/6*i) for i in range(6)])
+    one_grid_n = len(p_x)//6    
+    face_width = np.abs(p_x[max_p_x_arg] - p_x[min_p_x_arg])
+    filling_width = np.abs(p_x[min_p_x_arg] - p_x[max_p_x_arg+one_grid_n])
+    
+    # this is the width of a single face +1 filling on UV coords
+    u_part_single = 1/(face_width+filling_width)
+    # this is all of them 
+    u_part_hex = u_part_single/6
+    
+    u = np.concatenate([ u*u_part_hex + 1/6 for i in range(6)])
                 
     return p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,u,v
 

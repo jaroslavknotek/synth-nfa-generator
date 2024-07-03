@@ -18,10 +18,19 @@ def color_model_faces(model_dict):
 
     N = mesh.face_count()
 
-    face_colors = np.repeat(np.random.rand(N),3)
+    face_colors = np.repeat( np.random.rand(N)*.8,3)
     
     mesh_params = mi.traverse(mesh)
     mesh_params["face_color"] = face_colors
     mesh_params.update()
     
     return mesh
+
+def debug_pink():
+    return {
+        'type': 'diffuse',
+        'reflectance': {
+            'type': 'rgb',
+            'value': [1, 0, 1]
+        }
+    }

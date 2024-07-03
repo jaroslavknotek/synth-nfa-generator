@@ -24,7 +24,7 @@ materials = NestedNamespace({
 blueprints = NestedNamespace({
     "camera_ring":{
         "diameter_mm": 860,
-        "light_height_mm": 200,
+        "light_height_mm": 500,
         "light_diameter_mm": 10,
         "light_offset_mm": 228,
         
@@ -35,13 +35,19 @@ blueprints = NestedNamespace({
         "height_mm":3800
     },
     "fa":{
-        "rods_per_face":11
+        "rods_per_face":11,
+        "grid_tops_mm" : [   0,  200,  455,  795, 1135, 1475, 1815, 2155, 2495, 2835, 3175, 3515, 3755, 3800],
+        "grid_heights_mm" : [0,30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,0]
     }
 })
 
 scene_params = NestedNamespace({
     "illumination":{
-        "cam_light_intensity":1000
+        "cam_light_intensity":50
     },
-    "textures_per_fuel_rods":20
+    "textures_per_fuel_rods":20,
+    "camera":{
+        "resolution_width": 750,
+        "resolution_height": 600,
+    }
 })

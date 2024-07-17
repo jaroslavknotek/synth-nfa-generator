@@ -57,7 +57,7 @@ class FAInspection:
         self.model_grids = add_grids(self.grid_x,self.grid_y,self.grid_z,grid_material)
 
     
-    def render_frame(self,cam_z,face_num = 1):
+    def render_frame(self,cam_z,face_num = 1,spp = 128):
         
         scene_dict = scene.inspection_dict(cam_z = cam_z,face_num=face_num)
         
@@ -70,6 +70,7 @@ class FAInspection:
         
         return scene.render_scene(
             scene_dict,
+            spp = spp,
             alpha = False,
             denoise=True
         )

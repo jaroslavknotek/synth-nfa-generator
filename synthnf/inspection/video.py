@@ -44,11 +44,12 @@ def run_inspection(directory,inspection,n_frames,top_down = True,face_num=1):
         inspection,
         n_frames,
         fps=25,
+        spp = 64,
         top_down=top_down
     )
 
     
-def create_video(frame_folder,video_path,inspection,n_frames,top_down = True,fps = None):
+def create_video(frame_folder,video_path,inspection,n_frames,top_down = True,fps = None,spp = 128):
     if video_path.exists():
         logger.info("Video exists. Skipping")
         return
@@ -67,7 +68,7 @@ def create_video(frame_folder,video_path,inspection,n_frames,top_down = True,fps
         zs_i = zs_i[idx_start:]
 
     for i,z in tqdm(zs_i):
-        frame = inspection.render_frame(z)
+        frame = inspection.render_frame(z,spp = spp)
         path = frame_folder/f"frame_{i:04}_{int(z):04}.png"
         io.imwrite(path,frame)
         

@@ -1,7 +1,5 @@
 import drjit as dr
 
-dr.set_flag(dr.JitFlag.Debug, True)
-
 import mitsuba as mi
 mi.set_variant('cuda_ad_rgb')
 
@@ -17,6 +15,8 @@ import synthnf.utils as utils
 logging.basicConfig()
 logger = logging.getLogger('synthnf')
 
+logger_re = logging.getLogger('synthnf.renderer')
+#logger_re.setLevel(logging.DEBUG)
 import synthnf.inspection as ins
 
 

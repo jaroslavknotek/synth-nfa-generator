@@ -133,3 +133,7 @@ dmypy.json
 activate.sh
 tmp/*
 output/
+
+*.blend1
+obsolete/
+*.egg-info

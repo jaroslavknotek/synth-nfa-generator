@@ -30,6 +30,7 @@ class FAInspection:
         grid_smpls = self.grid_tops_mm[1:-1]/np.max(self.grid_tops_mm)
         self.grid_x,self.grid_y,self.grid_z = self.curve_fa.evaluate_multi(grid_smpls)
         
+        self.center_of_gravity_height = 15000 # TODO remove constant
         
         rod_mat = self.simulation.rod_material()
         
@@ -61,12 +62,25 @@ class FAInspection:
         
         scene_dict = scene.inspection_dict(cam_z = cam_z,face_num=face_num)
         
-        scene_dict['tips'] = self.model_tips
-        scene_dict['butts'] = self.model_butts
-        scene_dict['model'] = self.model_fa
+        scene_dict['tips'] = self.model_tips.copy()
+        scene_dict['butts'] = self.model_butts.copy()
+        scene_dict['model'] = self.model_fa.copy()
         
-        for i,g in enumerate(self.model_grids):
-            scene_dict[f'model_grid_{int(i)}'] = g
+        keys =[ f'model_grid_{int(i)}' for i in range(len(self.model_grids))]
+        for key,g in zip(keys,self.model_grids):
+            scene_dict[key] = g.copy()
+        
+        t = cam_z/self.fa_height_mm
+        swing_deg_xz,swing_deg_xy = self.simulation.pendulum_swing_in_time(t)
+        swing = swing_transformation(
+                swing_deg_xz, 
+                self.center_of_gravity_height, 
+                swing_deg_xy
+            )
+        
+        for model_key in ['tips','butts','model',*keys]:
+            model = scene_dict[model_key]
+            scene.append_transform(model,swing)
         
         return scene.render_scene(
             scene_dict,
@@ -187,3 +201,16 @@ def add_grids(grid_x,grid_y,grid_z,grid_material):
         grid['to_world'] = mi.ScalarTransform4f.translate([x,y,z])
         grids.append(grid)
     return grids
+
+
+def swing_transformation(
+    swing_deg,
+    center_of_gravity_height,
+    xy_plane_rotation_deg,
+):
+    to_center =  mi.ScalarTransform4f.translate([0,0,-center_of_gravity_height])
+    rot_xz = mi.ScalarTransform4f.rotate([0,1,0],swing_deg)
+    from_center = mi.ScalarTransform4f.translate([0,0,center_of_gravity_height])
+    rot_xy = mi.ScalarTransform4f.rotate([0,1,0],xy_plane_rotation_deg)
+
+    return rot_xy @ from_center@ rot_xz @ to_center

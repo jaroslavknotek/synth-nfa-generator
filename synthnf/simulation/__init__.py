@@ -35,6 +35,9 @@ class RandomParameters():
         max_z_displacement_mm = None,
         n_textures = None,
         cloudiness = None,
+        swing_max_angle_deg = None,
+        swing_periods_per_inspection = None,
+        swing_deg_xy = 0,
         seed=None,
     ):
         self.n_textures = n_textures or 1
@@ -60,9 +63,28 @@ class RandomParameters():
         self.max_divergence_mm = max_divergence_mm or 0
         self.max_z_displacement_mm = max_z_displacement_mm or 0
         
+        self.swing_max_angle_deg = swing_max_angle_deg
+        self.swing_periods_per_inspection = swing_periods_per_inspection        
+        self.swing_deg_xy = swing_deg_xy
         
         self.cloudiness = cloudiness if cloudiness is not None else self.rnd.rand()
     
+        
+    def pendulum_swing_in_time(self, t):
+        
+        x = 0
+        if self.swing_periods_per_inspection is not None:
+            x = 2*np.pi*t * self.swing_periods_per_inspection
+            
+        relative_position = np.sin(x)
+        
+        if self.swing_max_angle_deg is None:
+            return 0,0
+        else:
+            return relative_position* self.swing_max_angle_deg , self.swing_deg_xy
+    
+
+
     def rods_noise(self):        
         noises = []
         for _ in range(self.n_textures):

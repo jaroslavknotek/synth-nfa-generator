@@ -56,8 +56,6 @@ def global_light(intensity = None):
         }
      }
 
-def _transform(model,transformation):
-    model['to_world'] = transformation @model.get('to_world',trans_identity)
     
 def inspection_dict(
     integrator = None,
@@ -119,10 +117,15 @@ def inspection_dict(
     # clockwise
     trans_rotate = mi.ScalarTransform4f.rotate([0,0,1],-(face_num-1)*60)
     for obj_key in ['sensor','light_1','light']:
-        _transform(scene_dict.get(obj_key,{}),trans_rotate)
+        append_transform(scene_dict.get(obj_key,{}),trans_rotate)
     
     
     return scene_dict
+
+def append_transform(model,transformation):
+    model['to_world'] = transformation @model.get('to_world',trans_identity)
+
+
 
 def shrunk_dict(
     curve_fa,
@@ -145,7 +148,7 @@ def shrunk_dict(
     
     # clockwise
     trans_rotate = mi.ScalarTransform4f.rotate([0,0,1],-(face_num-1)*60)
-    _transform(orto_cam,trans_rotate)
+    append_transform(orto_cam,trans_rotate)
     
     
     return {

@@ -1,3 +1,4 @@
+import os
 from tqdm.auto import tqdm
 import numpy as np
 import pathlib
@@ -11,7 +12,6 @@ import shutil
 import matplotlib.pyplot as plt
 
 logger = logging.getLogger('synthnf')
-
 
 def run_inspection_all_sides(out_folder,inspection,frames_num,odd_top_down=True):
     for i in range(6):    
@@ -49,7 +49,7 @@ def run_inspection(directory,inspection,n_frames,top_down = True,face_num=1):
     )
 
     
-def create_video(frame_folder,video_path,inspection,n_frames,top_down = True,fps = None,spp = 128):
+def create_video(frame_folder,video_path:os.PathLike,inspection,n_frames,top_down = True,fps = None,spp = 128):
     if video_path.exists():
         logger.info("Video exists. Skipping")
         return

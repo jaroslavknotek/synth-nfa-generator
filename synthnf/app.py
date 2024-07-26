@@ -24,43 +24,16 @@ import synthnf.inspection as ins
 
 import numpy as np
 
-def generate_random_params():
-    random_seed = np.random.randint(2**31)
-    
-    rnd = np.random.RandomState(seed = random_seed)
-    
-    mean = [.7, .5]
-    cov = [
-        [1, .5], 
-        [.5, 1 ],
-    ]  # diagonal covariance
-
-    rand_points = rnd.multivariate_normal(mean, cov, 100)
-
-    rand_points=utils.normalize(rand_points)
-    cloudiness, max_bow = rand_points[50]
-
-    cloudiness = .5 + cloudiness/2
-    max_div = 5*max_bow
-    max_dis = 10*max_bow
-    max_bow = 150*max_bow
-    
-    return simu.RandomParameters(
-        max_bow_mm = max_bow,
-        max_divergence_mm=max_div,
-        max_z_displacement_mm=max_dis,
-        n_textures=21,
-        cloudiness=cloudiness,
-        seed = random_seed
-    )
-
 def create_inspection(out_folder,params_dict,n_frames,force):
     if not force and out_folder.exists():
         raise Exception(f"Output folder already exists. Use '--force' flag to override behavior. Folder:{out_folder.absolute()}")
 
+    swing_cam_above_mm = params_dict.get('swing_cam_above_mm',0)
+    del params_dict['swing_cam_above_mm']
+    
     simulation_model = simu.RandomParameters(**params_dict)
     logger.info("Generating inspection scene with seed %d", simulation_model.seed)
-    inspection = ins.FAInspection(simulation_model)
+    inspection = ins.SwingSupressingInspection(simulation_model,swing_cam_above_mm)
     vid.run_inspection_all_sides(out_folder,inspection,n_frames)
 
 def setup_argparse():

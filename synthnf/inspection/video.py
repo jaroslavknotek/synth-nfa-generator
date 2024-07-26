@@ -61,18 +61,33 @@ def create_video(frame_folder,video_path:os.PathLike,inspection,n_frames,top_dow
     if top_down:
         zs = np.flip(zs)
     zs_i = list(enumerate(zs))
-    frame_folder.mkdir(exist_ok=True,parents=True)
-    idx_start=len(list(frame_folder.glob("*.png")))    
+    frames_top =  frame_folder/"tops"
+    frames_bottom = frame_folder/"bottoms"
+    
+    frames_top.mkdir(exist_ok=True,parents=True)
+    frames_bottom.mkdir(exist_ok=True,parents=True)
+    
+    idx_start=len(list(frames_bottom.glob("*.png")))    
     if idx_start > 0:
         logger.warning(f"Found existing frames. Continuing from {idx_start}")
         zs_i = zs_i[idx_start:]
 
     for i,z in tqdm(zs_i):
         frame = inspection.render_frame(z,spp = spp)
-        path = frame_folder/f"frame_{i:04}_{int(z):04}.png"
-        io.imwrite(path,frame)
+        h = frame.shape[0]//2
+        bottom = frame[:h]
+        path = frames_bottom/f"frame_{i:04}_{int(z):04}.png"
+        io.imwrite(path,bottom)
         
-    images_to_video(frame_folder,video_path,fps=None)
+        top = frame[-h:]
+        path = frames_top/f"frame_{i:04}_{int(z):04}.png"
+        io.imwrite(path,top)
+        
+        
+    images_to_video(frames_bottom,video_path,fps=None)
+    
+    top_video = video_path.parent/f"top_{video_path.name}"
+    images_to_video(frames_top,top_video,fps=None)
     
         
 
@@ -110,11 +125,22 @@ def save_metadata(meta_dir,metadata):
     io.imwrite(meta_dir/'shrunk.png',metadata['shrunk'])
     
     metadata['bow_fig'].savefig(meta_dir/'bow_div.png')
+    plt.close()
+    
     
     res = {
         'cam_speed_mm_per_s':metadata['cam_speed'],
         "rod_growth_mm":metadata['displacement']
     }
+    
+    if 'swing_xy' in metadata and 'swing_xz' in metadata:
+        swings = {
+            "swing_xy":(metadata["swing_xy"]),
+            "swing_xz":list(metadata["swing_xz"])
+        }
+        with open(meta_dir/'swings.json','w') as f:
+            json.dump(swings,f)
+    
     
     with open(meta_dir/'results.json','w') as f:
         json.dump(res,f)

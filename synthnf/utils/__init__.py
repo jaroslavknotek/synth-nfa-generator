@@ -1,1 +1,1 @@
-from .math import *
+from .math import *  # noqa: F403

@@ -34,16 +34,16 @@ def get_spots_texture(
 
 
 def merge_spot(canvas, spot, y, x, x_circular=True, y_circular=False):
-    #max_y = canvas.shape[0] - 1
+    # max_y = canvas.shape[0] - 1
     canvas_shape = np.array(canvas.shape)
     spot_shape = np.array(spot.shape)
     offsets = spot_shape // 2
 
-    #corner_tl = np.array([0, 0])
-    #corner_br = canvas_shape
+    # corner_tl = np.array([0, 0])
+    # corner_br = canvas_shape
 
     origin = np.array([y, x])
-    #top_left = origin - offsets
+    # top_left = origin - offsets
     # bottom_right = top_left + spot_shape
 
     crop_tl = -np.minimum(0, origin - offsets)

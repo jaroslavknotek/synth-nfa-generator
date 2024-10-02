@@ -1,10 +1,10 @@
-import os
 from tqdm.auto import tqdm
 import numpy as np
 import pathlib
-
+from pathlib import Path
 import synthnf.io as io
 
+from synthnf.inspection import FramePackage
 import cv2
 import json
 import logging
@@ -57,7 +57,7 @@ def run_inspection(directory, inspection, n_frames, top_down=True, face_num=1):
 
 def create_video(
     frame_folder,
-    video_path: os.PathLike,
+    video_path: Path,
     inspection,
     n_frames,
     top_down=True,
@@ -88,19 +88,22 @@ def create_video(
 
     for i, z in tqdm(zs_i):
         frame = inspection.render_frame(z, spp=spp)
-        h = frame.shape[0] // 2
-        bottom = frame[:h]
-        path = frames_bottom / f"frame_{i:04}_{int(z):04}.png"
-        io.imwrite(path, bottom)
 
-        top = frame[-h:]
-        path = frames_top / f"frame_{i:04}_{int(z):04}.png"
-        io.imwrite(path, top)
+        frame_name = f"frame_{i:04}_{int(z):04}.png"
+        path = frames_bottom / frame_name
+        if isinstance(frame, FramePackage):
+            frames = frame.to_dict()
+            top = frames["swing"]
+            bottom = frames[""]
+            io.imwrite(path, bottom)
+            path = frames_top / frame_name
+            io.imwrite(path, top)
+        else:
+            io.imwrite(path, frame)
 
-    images_to_video(frames_bottom, video_path, fps=None)
-
+    images_to_video(frames_bottom, video_path, fps=fps)
     top_video = video_path.parent / f"top_{video_path.name}"
-    images_to_video(frames_top, top_video, fps=None)
+    images_to_video(frames_top, top_video, fps=fps)
 
 
 def images_to_video(input_folder, video_filepath=None, fps=None):

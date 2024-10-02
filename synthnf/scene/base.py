@@ -58,6 +58,7 @@ def inspection_dict(
     cam_z=None,
     cam_res_x=None,
     cam_res_y=None,
+    cam_fov = None,
     face_num=1,
 ):
     assert (
@@ -70,6 +71,7 @@ def inspection_dict(
     cam_ligth_intensity = (
         cam_ligth_intensity or defaults.scene_params.illumination.cam_light_intensity
     )
+    
 
     cam_z = cam_z if cam_z is not None else 0
 
@@ -81,9 +83,10 @@ def inspection_dict(
         target=[0, 0, cam_z],
         res_x=cam_res_x,
         res_y=cam_res_y,
+        fov=cam_fov
     )
 
-    integrator = integrator or {"type": "path"}
+    integrator = integrator or {"type": "path", "hide_emitters": True}
 
     scene_dict = {
         "type": "scene",

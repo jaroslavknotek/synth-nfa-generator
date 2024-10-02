@@ -70,7 +70,7 @@ class FAInspection:
         )
 
     def _prepare_scene_dict(self, cam_z, face_num):
-        scene_dict = scene.inspection_dict(cam_z=cam_z, face_num=face_num)
+        scene_dict = scene.inspection_dict(cam_z=cam_z, face_num=face_num,)
 
         scene_dict["tips"] = self.model_tips.copy()
         scene_dict["butts"] = self.model_butts.copy()
@@ -100,7 +100,7 @@ class FAInspection:
 
         return scene.render_scene(scene_dict, spp=spp, alpha=False, denoise=True)
 
-    def render_video(self, n_frames=None, cam_speed=None, top_down=True, side_num=1):
+    def render_video(self, n_frames=None, cam_speed=None, top_down=True):
         # XOR
         assert n_frames is not None or cam_speed is not None
         assert not (n_frames is not None and cam_speed is not None)

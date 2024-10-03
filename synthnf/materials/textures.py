@@ -33,7 +33,7 @@ def rod_noise(
         persistence=0.5,
         lacunarity=2,
         tileable=(False, True),
-        rnd=rnd,
+        #rnd=rnd,
     )
 
 
@@ -58,7 +58,7 @@ def grid_noise(
         persistence=0.5,
         lacunarity=2,
         tileable=(True, True),
-        rnd=rnd,
+        #rnd=rnd,
     )
 
 
@@ -76,7 +76,7 @@ def grid_bumpmap(*, resolution_factor=1, horizontal_fequency=4, rnd=None, seed=N
         persistence=0.5,
         lacunarity=2,
         tileable=(True, True),
-        rnd=rnd,
+        #rnd=rnd,
     )
 
 

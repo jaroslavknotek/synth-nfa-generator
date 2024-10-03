@@ -1,0 +1,13 @@
+prefix=D:/a/mitsuba3/mitsuba3/_skbuild/win-amd64-3.10/cmake-install
+exec_prefix=D:/a/mitsuba3/mitsuba3/_skbuild/win-amd64-3.10/cmake-install
+libdir=D:/a/mitsuba3/mitsuba3/_skbuild/win-amd64-3.10/cmake-install/lib
+sharedlibdir=D:/a/mitsuba3/mitsuba3/_skbuild/win-amd64-3.10/cmake-install/lib
+includedir=D:/a/mitsuba3/mitsuba3/_skbuild/win-amd64-3.10/cmake-install/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.11
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}

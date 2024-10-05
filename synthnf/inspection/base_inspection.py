@@ -32,7 +32,7 @@ class FAInspection:
 
         rod_mat = self.simulation.rod_material()
 
-        self.z_displacement = self.simulation.z_displacement()
+        self.z_displacement = self.simulation.z_displacement() + simulation.z_displacement_base
         self.model_tips = models.rod_tips(
             rod_centers=self.rod_centers,
             material=rod_mat,

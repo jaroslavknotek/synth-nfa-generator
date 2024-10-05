@@ -55,11 +55,12 @@ def inspection_dict(
     cam_ligth_intensity=None,
     cam_distance_mm=None,
     camera=None,
-    cam_z=None,
+    cam_z=None,    
     cam_res_x=None,
     cam_res_y=None,
     cam_fov = None,
     face_num=1,
+    cam_x=0,
 ):
     assert (
         1 <= face_num <= 6
@@ -79,8 +80,8 @@ def inspection_dict(
     cam_res_y = cam_res_y or defaults.scene_params.camera.resolution_height
 
     camera = camera or scene.cam_perspective_lookat(
-        [0, cam_distance_mm, cam_z],
-        target=[0, 0, cam_z],
+        [cam_x, cam_distance_mm, cam_z],
+        target=[cam_x, 0, cam_z],
         res_x=cam_res_x,
         res_y=cam_res_y,
         fov=cam_fov

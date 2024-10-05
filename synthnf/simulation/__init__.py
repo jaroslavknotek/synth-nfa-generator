@@ -37,6 +37,7 @@ class RandomParameters:
         swing_periods_per_inspection=None,
         swing_deg_xy=0,
         seed=None,
+        z_displacement_base = 0,
     ):
         self.n_textures = n_textures or 1
         self.seed = (
@@ -72,6 +73,8 @@ class RandomParameters:
         self.swing_deg_xy = swing_deg_xy
 
         self.cloudiness = cloudiness if cloudiness is not None else self.rnd.rand()
+
+        self.z_displacement_base = z_displacement_base
 
     def pendulum_swing_in_time(self, t):
         x = 0

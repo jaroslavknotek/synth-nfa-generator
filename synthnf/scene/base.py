@@ -6,8 +6,7 @@ import synthnf.scene as scene
 import logging
 
 
-#trans_identity = mi.ScalarTransform4f.translate([0, 0, 0])
-trans_identity = mi.Transform4f().translate([0, 0, 0])
+trans_identity = mi.ScalarTransform4f().translate([0, 0, 0])
 
 logger = logging.getLogger("synthnf.renderer")
 
@@ -130,7 +129,7 @@ def inspection_dict(
         )
 
     degrees = FACE_TO_ROTATION_DEG[face_num]
-    trans_rotate = mi.ScalarTransform4f.rotate([0, 0, 1],degrees)
+    trans_rotate = mi.ScalarTransform4f().rotate([0, 0, 1],degrees)
     for obj_key in ["sensor", "light_1", "light"]:
         append_transform(scene_dict.get(obj_key, {}), trans_rotate)
 
@@ -162,7 +161,7 @@ def shrunk_dict(
 
     # clockwise
     degrees = FACE_TO_ROTATION_DEG[face_num]
-    trans_rotate = mi.ScalarTransform4f.rotate([0, 0, 1],degrees)
+    trans_rotate = mi.ScalarTransform4f().rotate([0, 0, 1],degrees)
     append_transform(orto_cam, trans_rotate)
 
     return {

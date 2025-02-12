@@ -50,7 +50,7 @@ class FAInspection:
                 [0, 0, self.fa_height_mm]
             )
         else:
-            self.model_tips["to_world"] = mi.ScalarTransform4f.translate(
+            self.model_tips["to_world"] = mi.ScalarTransform4f().translate(
                 [0, 0, self.fa_height_mm]
             )
 
@@ -224,7 +224,7 @@ def add_grids(grid_x, grid_y, grid_z, grid_material):
     grids = []
     for x, y, z in zip(grid_x, grid_y, grid_z):
         grid = models.spacer_grid(material=grid_material)
-        grid["to_world"] = mi.ScalarTransform4f.translate([x, y, z])
+        grid["to_world"] = mi.ScalarTransform4f().translate([x, y, z])
         grids.append(grid)
     return grids
 
@@ -234,9 +234,9 @@ def swing_transformation(
     center_of_gravity_height,
     xy_plane_rotation_deg,
 ):
-    to_center = mi.ScalarTransform4f.translate([0, 0, -center_of_gravity_height])
-    rot_xz = mi.ScalarTransform4f.rotate([0, 1, 0], swing_deg)
-    from_center = mi.ScalarTransform4f.translate([0, 0, center_of_gravity_height])
-    rot_xy = mi.ScalarTransform4f.rotate([0, 1, 0], xy_plane_rotation_deg)
+    to_center = mi.ScalarTransform4f().translate([0, 0, -center_of_gravity_height])
+    rot_xz = mi.ScalarTransform4f().rotate([0, 1, 0], swing_deg)
+    from_center = mi.ScalarTransform4f().translate([0, 0, center_of_gravity_height])
+    rot_xy = mi.ScalarTransform4f().rotate([0, 1, 0], xy_plane_rotation_deg)
 
     return rot_xy @ from_center @ rot_xz @ to_center

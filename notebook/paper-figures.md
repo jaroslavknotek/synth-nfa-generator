@@ -176,7 +176,7 @@ scene_dict = default_scene.copy()
 test_tooth = {        
     'type': 'ply',
     'filename': tooth_pth,
-    "to_world": mi.ScalarTransform4f.rotate([0, 0, 1], angle=180),
+    "to_world": mi.ScalarTransform4f().rotate([0, 0, 1], angle=180),
 }
 
 scene_dict['model'] = mat.color_model_faces(test_tooth)
@@ -205,7 +205,7 @@ tooth_mirrored_img = scene.render_scene(scene_dict)
 p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z = sgm.array_left(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z,n=5)
 tooth_arrayed_mesh = sgm.compose_mesh(p_x,p_y,p_z,v_1,v_2,v_3,n_x,n_y,n_z)
 
-test_tooth["to_world"] = mi.ScalarTransform4f.rotate([0, 0, 1], angle=180).translate([2.5,0,0])
+test_tooth["to_world"] = mi.ScalarTransform4f().rotate([0, 0, 1], angle=180).translate([2.5,0,0])
 test_tooth['filename'] = io.save_mesh_to_temp(tooth_arrayed_mesh)
 scene_dict['model']= mat.color_model_faces(test_tooth)
 
@@ -226,7 +226,7 @@ import synthnf.models as models
 tooth_ply = io.read_ply(tooth_pth)
 grid_model = models.spacer_grid()
 
-grid_model['to_world'] = mi.ScalarTransform4f.scale(.5)
+grid_model['to_world'] = mi.ScalarTransform4f().scale(.5)
 grid_scene = default_scene.copy()
 grid_scene['model']= mat.color_model_faces(grid_model)
 
@@ -413,7 +413,7 @@ def compose_scene_rod_piece_real_param(
         scene_dict[f'tip_{i}'] = {
             'type':'ply',
             'filename':str(tip_path),
-            'to_world':mi.ScalarTransform4f.translate([x,0,29]).scale(radius*2),
+            'to_world':mi.ScalarTransform4f().translate([x,0,29]).scale(radius*2),
             'material': material
         }
         
@@ -467,7 +467,7 @@ def compose_grid_scene(cloudiness):
     )
 
     model_mat_grid = models.spacer_grid()
-    model_mat_grid['to_world'] = mi.ScalarTransform4f.scale(.75)
+    model_mat_grid['to_world'] = mi.ScalarTransform4f().scale(.75)
     model_mat_grid['material'] = g_params.grid_material()
     grid_mat_scene['model'] = model_mat_grid
 

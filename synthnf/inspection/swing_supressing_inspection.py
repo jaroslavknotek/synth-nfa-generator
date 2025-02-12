@@ -65,7 +65,7 @@ class SwingSupressionVerticalCamInspection(FAInspection):
         # this is the roll of the camera because the original camera 
         # looks down
         roll_axis = [0, 0, 1]
-        roll_transform = mi.ScalarTransform4f.rotate(roll_axis, self.cam_roll_deg)
+        roll_transform = mi.ScalarTransform4f().rotate(roll_axis, self.cam_roll_deg)
         sensor = scene_dict["sensor"]
         sensor["to_world"] =  sensor["to_world"] @ roll_transform
 

@@ -24,12 +24,22 @@ def run_inspection_all_sides(out_folder, inspection, frames_num, odd_top_down=Tr
             top_down = i % 2 == 0
         logger.info("Creating side %d", i + 1)
         run_inspection(
-            out_folder_side, inspection, frames_num, face_num=i + 1, top_down=top_down
+            out_folder_side, 
+            inspection, 
+            frames_num, 
+            face_num=i + 1, 
+            top_down=top_down
         )
         plt.close()
 
 
-def run_inspection(directory, inspection, n_frames, top_down=True, face_num=1):
+def run_inspection(
+    directory, 
+    inspection, 
+    n_frames, 
+    top_down=True, 
+    face_num=1,
+):
     directory = pathlib.Path(directory)
     directory.mkdir(exist_ok=True, parents=True)
 
@@ -51,6 +61,7 @@ def run_inspection(directory, inspection, n_frames, top_down=True, face_num=1):
         n_frames,
         fps=25,
         spp=64,
+        face_num = face_num,
         top_down=top_down,
     )
 
@@ -61,6 +72,7 @@ def create_video(
     inspection,
     n_frames,
     top_down=True,
+    face_num  = 1,
     fps=None,
     spp=128,
 ):
@@ -87,7 +99,7 @@ def create_video(
         zs_i = zs_i[idx_start:]
 
     for i, z in tqdm(zs_i):
-        frame = inspection.render_frame(z, spp=spp)
+        frame = inspection.render_frame(z, spp=spp,face_num=face_num)
 
         frame_name = f"frame_{i:04}_{int(z):04}.png"
         path = frames_bottom / frame_name
@@ -115,6 +127,9 @@ def images_to_video(input_folder, video_filepath=None, fps=None):
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
     frames_filepaths = list(sorted(input_folder.glob("*.png")))
+    if len(frames_filepaths) == 0:
+        logger.warning("No frames found. Skipping")
+        return
     fp = str(frames_filepaths[0])
     frame_height, frame_width = cv2.imread(fp).shape[:2]
 

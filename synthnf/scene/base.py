@@ -5,11 +5,31 @@ import synthnf.config.defaults as defaults
 import synthnf.scene as scene
 import logging
 
-trans_identity = mi.ScalarTransform4f.translate([0, 0, 0])
+
+#trans_identity = mi.ScalarTransform4f.translate([0, 0, 0])
+trans_identity = mi.Transform4f().translate([0, 0, 0])
+
 logger = logging.getLogger("synthnf.renderer")
 
+FACE_TO_ROTATION_DEG = {
+    1: 0,
+    2: 60,
+    3: 120,
+    4: 180,
+    5: 240,
+    6: 300,
+}
 
-def render_scene(scene_dict, spp=128, seed=789, clip=False, alpha=True, denoise=False):
+
+
+def render_scene(
+    scene_dict, 
+    spp=128, 
+    seed=789, 
+    clip=False, 
+    alpha=True, 
+    denoise=False
+):
     logger.debug("Rendering START")
 
     logger.debug("Loading scene")
@@ -109,8 +129,8 @@ def inspection_dict(
             light_height_mm=light_height_mm,
         )
 
-    # clockwise
-    trans_rotate = mi.ScalarTransform4f.rotate([0, 0, 1], -(face_num - 1) * 60)
+    degrees = FACE_TO_ROTATION_DEG[face_num]
+    trans_rotate = mi.ScalarTransform4f.rotate([0, 0, 1],degrees)
     for obj_key in ["sensor", "light_1", "light"]:
         append_transform(scene_dict.get(obj_key, {}), trans_rotate)
 
@@ -141,7 +161,8 @@ def shrunk_dict(
     )
 
     # clockwise
-    trans_rotate = mi.ScalarTransform4f.rotate([0, 0, 1], -(face_num - 1) * 60)
+    degrees = FACE_TO_ROTATION_DEG[face_num]
+    trans_rotate = mi.ScalarTransform4f.rotate([0, 0, 1],degrees)
     append_transform(orto_cam, trans_rotate)
 
     return {

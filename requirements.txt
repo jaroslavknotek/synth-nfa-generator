@@ -1,0 +1,7 @@
+mitsuba
+numpy
+matplotlib
+imageio
+pandas
+bezier
+git+https://github.com/jaroslavknotek/perlin-numpy.git

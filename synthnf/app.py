@@ -37,13 +37,14 @@ def create_inspection(out_folder, params_dict, n_frames, force):
     # inspection = ins.SwingSupressingInspection(simulation_model, swing_cam_above_mm)
     swing_cam_height_mm = 10_000
     swing_cam_dist_mm = 0
-    inspection = ins.SwingSupressionVerticalCamInspection(
-        simulation_model,
-        swing_cam_height_mm,
-        swing_cam_dist_mm,
-        fov=10,
-        cam_roll_deg=cam_roll_deg,
-    )
+    # inspection = ins.SwingSupressionVerticalCamInspection(
+    #     simulation_model,
+    #     swing_cam_height_mm,
+    #     swing_cam_dist_mm,
+    #     fov=10,
+    #     cam_roll_deg=cam_roll_deg,
+    # )
+    inspection = ins.FAInspection(simulation_model)
     vid.run_inspection_all_sides(out_folder, inspection, n_frames)
 
 

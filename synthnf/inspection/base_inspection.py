@@ -4,6 +4,7 @@ import synthnf.geometry.curves as curves
 import synthnf.simulation as simu
 import synthnf.models as models
 import synthnf.scene as scene
+from synthnf.scene.base import FACE_TO_ROTATION_DEG
 
 import matplotlib.pyplot as plt
 
@@ -69,8 +70,17 @@ class FAInspection:
             self.grid_x, self.grid_y, self.grid_z, grid_material
         )
 
-    def _prepare_scene_dict(self, cam_z, face_num):
-        scene_dict = scene.inspection_dict(cam_z=cam_z, face_num=face_num,)
+    def _prepare_scene_dict(
+        self, 
+        cam_z, 
+        face_num,
+        ):
+        scene_dict = scene.inspection_dict(
+            cam_z=cam_z, 
+            face_num=face_num,
+            cam_res_x=self.simulation.cam_res_x,
+            cam_res_y=self.simulation.cam_res_y,
+        )
 
         scene_dict["tips"] = self.model_tips.copy()
         scene_dict["butts"] = self.model_butts.copy()
@@ -100,10 +110,17 @@ class FAInspection:
 
         return scene.render_scene(scene_dict, spp=spp, alpha=False, denoise=True)
 
-    def render_video(self, n_frames=None, cam_speed=None, top_down=True):
+    def render_video(
+        self, 
+        n_frames=None, 
+        cam_speed=None, 
+        top_down=True,
+        face_num=1
+    ):
         # XOR
         assert n_frames is not None or cam_speed is not None
         assert not (n_frames is not None and cam_speed is not None)
+
 
         n_frames = n_frames or int(self.fa_height_mm / cam_speed)
         cam_zs = np.linspace(0, self.fa_height_mm, n_frames)
@@ -111,7 +128,7 @@ class FAInspection:
             cam_zs = np.flip(cam_zs)
 
         for cam_z in cam_zs:
-            frame = self.render_frame(cam_z)
+            frame = self.render_frame(cam_z,face_num=face_num)
             yield cam_z, frame
 
     def render_shrunk(
@@ -137,6 +154,7 @@ class FAInspection:
         scene_dict["butts"] = self.model_butts
         scene_dict["model"] = self.model_fa
 
+
         if grids:
             for i, g in enumerate(self.model_grids):
                 scene_dict[f"model_grid_{int(i)}"] = g
@@ -147,7 +165,7 @@ class FAInspection:
         if ax is None:
             _, ax = plt.subplots(1, 1)
 
-        angle_deg = -(face_num - 1) * 60
+        angle_deg = FACE_TO_ROTATION_DEG[face_num]
         curve = None
         if bow:
             curve = curves.CurveRotatedZAxis(self.curve_fa, angle_deg)
@@ -164,10 +182,13 @@ class FAInspection:
 
     def sample_shifts(self, n, top_down=True, face_num=1):
         ts = np.linspace(0, 1, n)
-        if top_down:
-            ts = np.flip(ts)
+        #if top_down:
+        #    ts = np.flip(ts)
+    
+        if face_num not in FACE_TO_ROTATION_DEG:
+            raise ValueError(f"Face number {face_num} not supported")
 
-        angle_deg = -(face_num - 1) * 60
+        angle_deg = FACE_TO_ROTATION_DEG[face_num]
         c = curves.CurveRotatedZAxis(self.curve_fa, angle_deg)
         x, y, z = c.evaluate_multi(ts)
 

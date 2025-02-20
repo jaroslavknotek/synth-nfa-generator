@@ -36,6 +36,8 @@ class RandomParameters:
         swing_max_angle_deg=None,
         swing_periods_per_inspection=None,
         swing_deg_xy=0,
+        cam_res_x = None,
+        cam_res_y = None,
         seed=None,
     ):
         self.n_textures = n_textures or 1
@@ -72,6 +74,8 @@ class RandomParameters:
         self.swing_deg_xy = swing_deg_xy
 
         self.cloudiness = cloudiness if cloudiness is not None else self.rnd.rand()
+        self.cam_res_x = cam_res_x or defaults.scene_params.camera.resolution_width
+        self.cam_res_y = cam_res_y or defaults.scene_params.camera.resolution_height
 
     def pendulum_swing_in_time(self, t):
         x = 0

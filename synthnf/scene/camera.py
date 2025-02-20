@@ -21,7 +21,12 @@ def create_mount_emmiter(
 
 
 def cam_perspective_lookat(
-    origin, target=None, up=None, fov=None, res_x=None, res_y=None
+    origin, 
+    target=None, 
+    up=None, 
+    fov=None, 
+    res_x=None, 
+    res_y=None,
 ):
     if target is None:
         target = [0, 0, 0]
@@ -36,7 +41,8 @@ def cam_perspective_lookat(
     return {
         "type": "perspective",
         "fov": fov,
-        "to_world": mi.ScalarTransform4f.look_at(origin=origin, target=target, up=up),
+        "to_world": mi.ScalarTransform4f().look_at(origin=origin, target=target, up=up),
+        "far_clip": 100_000,
         "film": {
             "type": "hdrfilm",
             "pixel_format": "rgba",
@@ -70,7 +76,7 @@ def cam_orto_lookat(
             "height": res_y,
             "rfilter": {"type": "box"},
         },
-        "to_world": mi.ScalarTransform4f.look_at(
+        "to_world": mi.ScalarTransform4f().look_at(
             origin=origin, target=target, up=up
         ).scale([*orto_scale_xy, 1]),
     }

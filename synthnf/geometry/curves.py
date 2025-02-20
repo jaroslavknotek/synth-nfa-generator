@@ -52,7 +52,7 @@ class CurveRotatedZAxis:
     def evaluate_multi(self, xs):
         xs, ys, zs = self.curve.evaluate_multi(xs)
 
-        xs_rot, ys_rot = np.dot(self.rotation_matrix, [xs, ys])
+        xs_rot, ys_rot = (np.vstack([xs,ys]).T @ self.rotation_matrix).T
 
         return xs_rot, ys_rot, zs
 

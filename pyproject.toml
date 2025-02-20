@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta" 
+
+
+[project]
+name = "synthnf" 
+version = "0.0.1"  
+
+description = "Generator of synthetic data"
+
+readme = "README.md"
+
+requires-python = ">=3.12"
+
+license = {file = "LICENSE.txt"}
+
+keywords = ["synth"]
+
+authors = [
+  {name = "Jry", email = "knotekjaroslav@email.cz" }
+]
+
+# maintainers = [
+#   {name = "A. Great Maintainer", email = "maintainer@example.com" }
+# ]
+
+classifiers = [
+  # How mature is this project? Common values are
+  #   3 - Alpha
+  #   4 - Beta
+  #   5 - Production/Stable
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Build Tools",
+  "License :: OSI Approved :: MIT License",
+
+  # Specify the Python versions you support here. In particular, ensure
+  # that you indicate you support Python 3. These classifiers are *not*
+  # checked by "pip install". See instead "requires-python" key in this file.
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+dependencies = [
+  "mitsuba",
+  "numpy",
+  "matplotlib",
+  "imageio",
+  "tqdm",
+  "pandas",
+  "scipy",
+  "scikit-image",
+  "bezier",
+  "perlin-numpy@git+https://github.com/jaroslavknotek/perlin-numpy.git"
+]
+
+# List additional groups of dependencies here (e.g. development
+# dependencies). Users will be able to install these using the "extras"
+# syntax, for example:
+#
+#   $ pip install sampleproject[dev]
+#
+# Optional dependencies the project provides. These are commonly 
+# referred to as "extras". For a more extensive definition see:
+# https://packaging.python.org/en/latest/specifications/dependency-specifiers/#extras
+[project.optional-dependencies]
+dev = ["check-manifest","pytest","pytest-aiohttp"]
+test = ["coverage"]
+
+[project.urls]
+"Homepage" = "https://github.com/pypa/sampleproject"
+"Bug Reports" = "https://github.com/pypa/sampleproject/issues"
+"Funding" = "https://donate.pypi.org"
+"Source" = "https://github.com/pypa/sampleproject/"
+
+# The following would provide a command line executable called `sample`
+# which executes the function `main` from this package when invoked.
+# [project.scripts]
+# sample = "sample:main"
+
+
+# This is configuration specific to the `setuptools` build backend.
+# If you are using a different build backend, you will need to change this.
+[tool.setuptools]
+# If there are data files included in your packages that need to be
+# installed, specify them here.
+package-data = {"sample" = ["*.dat"]}
+packages = ["synthnf"]
+# pyproject.toml
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+minversion = "6.0"
+addopts = "-ra -q"
+#testpaths = [
+#    "tests",
+#    "integration",
+#]
